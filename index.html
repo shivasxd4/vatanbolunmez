@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>VK ROYALS | VAMPIRE KINGDOM</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div id="master-wrap">
+        <section id="lobby" class="screen active">
+            <div class="lobby-card">
+                <h1 class="glitch-text">VK ROYALS</h1>
+                
+                <div class="avatar-box">
+                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77" onclick="window.nextAvatar()">
+                    <p>Değiştirmek için dokun</p>
+                </div>
+
+                <div class="input-group">
+                    <input type="text" id="nickname" placeholder="Kraliyet Lakabın..." maxlength="15">
+                </div>
+
+                <div class="lobby-actions">
+                    <button class="btn-main" onclick="window.showCreateModal()">YENİ ODA KUR</button>
+                    <div class="divider">VEYA HAZIR ODALARA KATIL</div>
+                    <div id="public-rooms" class="room-grid"></div>
+                    <div class="divider">ÖZEL ODA KODU İLE KATIL</div>
+                    <div class="input-group" style="margin-top:15px;">
+                        <input type="text" id="join-room-code" placeholder="Özel Oda Kodunu Gir...">
+                        <button class="btn-main" onclick="window.joinByCode()">KATIL</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="create-modal" class="modal">
+                <div class="modal-content">
+                    <h2>Oda Kurulumu</h2>
+                    <input type="text" id="custom-room-id" placeholder="Oda Adı veya Kodu (boş bırakırsan rastgele)">
+                    <select id="max-players-select">
+                        <option value="5">5 Kişilik</option>
+                        <option value="6">6 Kişilik</option>
+                        <option value="7">7 Kişilik</option>
+                        <option value="8">8 Kişilik (Önerilen)</option>
+                        <option value="10">10 Kişilik</option>
+                    </select>
+                    <div class="modal-btns">
+                        <button class="btn-main" onclick="window.confirmCreateRoom()">KUR VE KATIL</button>
+                        <button class="btn-cancel" onclick="window.closeModal()">İPTAL</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="game-room" class="screen">
+            <div class="top-bar">
+                <div class="room-meta">
+                    <span id="room-name-label">ODA</span>
+                    <small id="player-status">Bağlanıyor...</small>
+                    <small id="phase-label" style="margin-left:15px;">Lobby</small>
+                    <small id="timer-label" style="margin-left:10px; color:var(--gold); font-weight:bold;">00:00</small>
+                </div>
+                
+                <div class="admin-zone" id="admin-panel" style="display:none;">
+                    <button class="btn-start-game" onclick="window.startGame()">OYUNU BAŞLAT</button>
+                </div>
+
+                <div class="media-controls">
+                    <button id="mic-btn" class="ctrl-btn" onclick="window.toggleMic()">🎤</button>
+                    <button id="spk-btn" class="ctrl-btn" onclick="window.toggleSpk()">🔊</button>
+                    <button class="leave-btn" onclick="location.reload()">ÇIKIŞ</button>
+                </div>
+            </div>
+
+            <div id="player-grid" class="arena-grid"></div>
+
+            <div class="chat-system">
+                <div id="chat-messages"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="Mesajını yaz..." onkeydown="if(event.keyCode==13) window.sendChat()">
+                    <button onclick="window.sendChat()">GÖNDER</button>
+                </div>
+            </div>
+
+            <!-- Oyun Fazları UI -->
+            <div id="night-phase-overlay" class="phase-overlay">
+                <h2>🌙 GECE FAZI</h2>
+                <p id="night-action-text">Rolünüzü bekleyin...</p>
+                <div id="night-targets" class="target-grid"></div>
+            </div>
+
+            <div id="day-phase-overlay" class="phase-overlay">
+                <h2>☀️ GÜNDÜZ TARTIŞMA</h2>
+                <p>Oyuncuları tartışın ve oy verin!</p>
+                <div id="vote-targets" class="target-grid"></div>
+                <div id="vote-results" style="margin-top:20px; color:var(--gold);"></div>
+            </div>
+
+            <div id="game-over-overlay" class="phase-overlay">
+                <h2 id="game-over-title">OYUN BİTTİ</h2>
+                <p id="game-over-text">Kazanan: ...</p>
+                <button class="btn-main" onclick="location.reload()">LOBİYE DÖN</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Ses Efektleri -->
+    <audio id="sfx-day" src="https://cdn.freesound.org/previews/612/612596_5674468-lq.mp3"></audio> <!-- Day ambiance -->
+    <audio id="sfx-night" src="https://cdn.freesound.org/previews/276/276512_5123856-lq.mp3"></audio> <!-- Night horror -->
+    <audio id="sfx-vote" src="https://cdn.freesound.org/previews/341/341695_3248244-lq.mp3"></audio> <!-- Gavel / vote -->
+    <audio id="sfx-kill" src="https://cdn.freesound.org/previews/276/276507_5123856-lq.mp3"></audio> <!-- Horror kill -->
+    <audio id="sfx-win-village" src="https://cdn.freesound.org/previews/270/270307_5123856-lq.mp3"></audio> <!-- Victory -->
+    <audio id="sfx-win-vampire" src="https://cdn.freesound.org/previews/341/341696_3248244-lq.mp3"></audio> <!-- Evil laugh -->
+
+    <script src="app.js"></script>
+</body>
+</html>
