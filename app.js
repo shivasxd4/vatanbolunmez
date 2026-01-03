@@ -1,57 +1,153 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VK ROYALS</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
-</head>
-<body>
-    <div id="master-wrap">
-        <section id="lobby" class="screen active">
-            <div class="lobby-card">
-                <h1>VK ROYALS</h1>
-                <div class="avatar-box">
-                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=1" onclick="nextAvatar()">
-                </div>
-                <input type="text" id="nickname" placeholder="Lakabın">
-                <button class="btn-main" onclick="showCreateModal()">YENİ ODA</button>
-                <div id="public-rooms" class="room-grid"></div>
-                <input type="text" id="join-room-code" placeholder="Oda Kodu">
-                <button class="btn-main" onclick="joinByCode()">KATIL</button>
-            </div>
+const socket = io();
+let localStream;
+const peers = {}; // Bağlantıları saklar
+let myRoomId = null;
+let myNickname = "İsimsiz";
 
-            <div id="create-modal" class="modal">
-                <div class="modal-content">
-                    <input type="text" id="custom-room-id" placeholder="Oda Kodu (boş = rastgele)">
-                    <select id="max-players-select">
-                        <option value="8" selected>8 Kişi</option>
-                        <option value="10">10 Kişi</option>
-                    </select>
-                    <button class="btn-main" onclick="confirmCreateRoom()">KUR</button>
-                </div>
-            </div>
-        </section>
+// Başlangıçta Mikrofon İzni Al
+async function getMedia() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log("Mikrofon aktif.");
+    } catch (err) {
+        console.error("Mikrofon hatası:", err);
+        alert("Sesli sohbet için mikrofon izni şart!");
+    }
+}
 
-        <section id="game-room" class="screen">
-            <div class="top-bar">
-                <div><span id="room-name-label"></span> <small id="player-status"></small></div>
-                <div id="admin-panel"><button onclick="startGame()">BAŞLAT</button></div>
-                <div class="media-controls">
-                    <button id="mic-btn" onclick="toggleMic()">🎤</button>
-                    <button id="spk-btn" onclick="toggleSpk()">🔊</button>
-                </div>
+// Avatar Değiştirme (Basit Rastgelelik)
+window.nextAvatar = function() {
+    const seed = Math.floor(Math.random() * 1000);
+    document.getElementById('avatar-img').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+}
+
+// Odaya Katılma Fonksiyonları
+window.showCreateModal = () => document.getElementById('create-modal').style.display = 'flex';
+window.closeModal = () => document.getElementById('create-modal').style.display = 'none';
+
+window.confirmCreateRoom = () => {
+    const rId = document.getElementById('custom-room-id').value || Math.random().toString(36).substring(7);
+    joinRoom(rId);
+};
+
+window.joinByCode = () => {
+    const rId = document.getElementById('join-room-code').value;
+    if(rId) joinRoom(rId);
+};
+
+async function joinRoom(roomId) {
+    if (!localStream) await getMedia();
+    
+    myRoomId = roomId;
+    myNickname = document.getElementById('nickname').value || "Vampir";
+    const avatar = document.getElementById('avatar-img').src;
+
+    document.getElementById('lobby').classList.remove('active');
+    document.getElementById('game-room').classList.add('active');
+    document.getElementById('room-name-label').innerText = `ODA: ${roomId}`;
+
+    socket.emit('join-room', { roomId, nickname: myNickname, avatar });
+}
+
+// WebRTC - Peer-to-Peer Bağlantı Kurulumu
+socket.on('all-users', users => {
+    users.forEach(user => {
+        const peer = createPeer(user.id, socket.id, localStream);
+        peers[user.id] = peer;
+    });
+});
+
+socket.on('user-joined', payload => {
+    const peer = addPeer(payload.signal, payload.callerID, localStream);
+    peers[payload.callerID] = peer;
+});
+
+socket.on('receiving-returned-signal', payload => {
+    peers[payload.id].signal(payload.signal);
+});
+
+function createPeer(userToSignal, callerID, stream) {
+    const peer = new SimplePeer({
+        initiator: true,
+        trickle: false,
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
+        stream
+    });
+
+    peer.on('signal', signal => {
+        socket.emit('sending-signal', { userToSignal, callerID, signal });
+    });
+
+    peer.on('stream', stream => handleRemoteStream(stream, userToSignal));
+    return peer;
+}
+
+function addPeer(incomingSignal, callerID, stream) {
+    const peer = new SimplePeer({
+        initiator: false,
+        trickle: false,
+        stream
+    });
+
+    peer.on('signal', signal => {
+        socket.emit('returning-signal', { signal, callerID });
+    });
+
+    peer.on('stream', stream => handleRemoteStream(stream, callerID));
+    peer.signal(incomingSignal);
+    return peer;
+}
+
+function handleRemoteStream(stream, userId) {
+    let audio = document.getElementById(`audio-${userId}`);
+    if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = `audio-${userId}`;
+        audio.autoplay = true;
+        document.body.appendChild(audio);
+    }
+    audio.srcObject = stream;
+}
+
+// Odadaki Oyuncuları Listeleme (Arayüz)
+socket.on('room-update', users => {
+    const grid = document.getElementById('player-grid');
+    grid.innerHTML = "";
+    users.forEach(user => {
+        grid.innerHTML += `
+            <div class="player-unit">
+                <img src="${user.avatar}" width="50">
+                <div style="font-size:12px; margin-top:5px;">${user.nickname}</div>
+                ${user.id === socket.id ? '<small>(Sen)</small>' : ''}
             </div>
-            <div id="player-grid" class="arena-grid"></div>
-            <div class="chat-system">
-                <div id="chat-messages"></div>
-                <input id="chat-input" onkeydown="if(event.key==='Enter') sendChat()" placeholder="Mesaj...">
-                <button onclick="sendChat()">Gönder</button>
-            </div>
-        </section>
-    </div>
-    <script src="app.js"></script>
-</body>
-</html>
+        `;
+    });
+});
+
+// Chat İşlemleri
+window.sendChat = () => {
+    const input = document.getElementById('chat-input');
+    if (!input.value.trim()) return;
+
+    socket.emit('send-chat', {
+        roomId: myRoomId,
+        nickname: myNickname,
+        message: input.value
+    });
+    input.value = "";
+};
+
+socket.on('receive-chat', data => {
+    const msgDiv = document.getElementById('chat-messages');
+    msgDiv.innerHTML += `<div><span style="color:var(--accent)">${data.sender}:</span> ${data.message}</div>`;
+    msgDiv.scrollTop = msgDiv.scrollHeight;
+});
+
+// Mikrofon Kapat/Aç
+window.toggleMic = () => {
+    const track = localStream.getAudioTracks()[0];
+    track.enabled = !track.enabled;
+    const btn = document.getElementById('mic-btn');
+    btn.innerText = track.enabled ? "🎤" : "🔇";
+    btn.style.background = track.enabled ? "var(--card)" : "var(--error)";
+};
