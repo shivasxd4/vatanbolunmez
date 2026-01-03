@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VK ROYALS | VAMPIRE KINGDOM</title>
+    <title>VK ROYALS</title>
     <link rel="stylesheet" href="style.css">
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
 </head>
 <body>
     <div id="master-wrap">
@@ -14,43 +13,40 @@
             <div class="lobby-card">
                 <h1 class="glitch-text">VK ROYALS</h1>
                 <div class="avatar-box">
-                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77" onclick="nextAvatar()">
-                    <p>Değiştirmek için dokun</p>
+                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77">
+                    <p>Değiştirmek için resme dokun</p>
                 </div>
                 <input type="text" id="nickname" placeholder="Lakabın..." maxlength="15">
-                <button class="btn-main" onclick="showCreateModal()">YENİ ODA KUR</button>
-                <div class="divider">ÖZEL ODA KATIL</div>
-                <input type="text" id="join-room-code" placeholder="Oda Kodu Gir...">
-                <button class="btn-main" onclick="joinByCode()">KATIL</button>
+                <button id="btn-create-open" class="btn-main">YENİ ODA KUR</button>
+                <div class="divider">VEYA KODLA KATIL</div>
+                <input type="text" id="join-room-code" placeholder="Oda Kodu...">
+                <button id="btn-join-action" class="btn-main">KATIL</button>
             </div>
 
-            <div id="create-modal" class="modal" style="display:none;">
+            <div id="create-modal" class="modal">
                 <div class="modal-content">
-                    <h2>Oda Kurulumu</h2>
-                    <input type="text" id="custom-room-id" placeholder="Oda Kodu (İsteğe bağlı)">
-                    <button class="btn-main" onclick="confirmCreateRoom()">KUR & KATIL</button>
-                    <button onclick="closeModal()">İPTAL</button>
+                    <h2>Oda Kur</h2>
+                    <input type="text" id="custom-room-id" placeholder="Oda Adı (Boş bırakabilirsin)">
+                    <button id="btn-confirm-create" class="btn-main">KUR VE BAŞLA</button>
+                    <button id="btn-close-modal" style="background:#444; color:white;">İPTAL</button>
                 </div>
             </div>
         </section>
 
         <section id="game-room" class="screen">
             <div class="top-bar">
-                <div class="room-meta">
-                    <span id="room-name-label">Oda</span>
-                    <small id="timer-label">00:00</small>
-                </div>
+                <span id="room-name-label">ODA</span>
                 <div class="media-controls">
-                    <button id="mic-btn" class="ctrl-btn" onclick="toggleMic()">🎤</button>
-                    <button class="leave-btn" onclick="location.reload()">ÇIK</button>
+                    <button id="mic-btn" class="ctrl-btn">🎤</button>
+                    <button id="leave-btn" class="leave-btn">ÇIK</button>
                 </div>
             </div>
             <div id="player-grid" class="arena-grid"></div>
             <div class="chat-system">
                 <div id="chat-messages"></div>
-                <div class="chat-input-row" style="display: flex;">
-                    <input type="text" id="chat-input" placeholder="Mesaj..." onkeydown="if(event.key==='Enter') sendChat()">
-                    <button onclick="sendChat()">🚀</button>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="Mesaj yaz...">
+                    <button id="btn-send-chat">🚀</button>
                 </div>
             </div>
         </section>
