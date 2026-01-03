@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>VK ROYALS | VAMPIRE KINGDOM</title>
     <link rel="stylesheet" href="style.css">
     <script src="/socket.io/socket.io.js"></script>
@@ -13,39 +13,23 @@
         <section id="lobby" class="screen active">
             <div class="lobby-card">
                 <h1 class="glitch-text">VK ROYALS</h1>
-                
                 <div class="avatar-box">
                     <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77" onclick="nextAvatar()">
                     <p>Değiştirmek için dokun</p>
                 </div>
-
-                <div class="input-group">
-                    <input type="text" id="nickname" placeholder="Lakabın..." maxlength="15">
-                </div>
-
-                <div class="lobby-actions">
-                    <button class="btn-main" onclick="showCreateModal()">YENİ ODA KUR</button>
-                    <div class="divider">HAZIR ODALAR</div>
-                    <div id="public-rooms" class="room-grid"></div>
-                    <div class="divider">ÖZEL ODA KATIL</div>
-                    <input type="text" id="join-room-code" placeholder="Oda Kodu Gir...">
-                    <button class="btn-main" onclick="joinByCode()">KATIL</button>
-                </div>
+                <input type="text" id="nickname" placeholder="Lakabın..." maxlength="15">
+                <button class="btn-main" onclick="showCreateModal()">YENİ ODA KUR</button>
+                <div class="divider">ÖZEL ODA KATIL</div>
+                <input type="text" id="join-room-code" placeholder="Oda Kodu Gir...">
+                <button class="btn-main" onclick="joinByCode()">KATIL</button>
             </div>
 
-            <div id="create-modal" class="modal">
+            <div id="create-modal" class="modal" style="display:none;">
                 <div class="modal-content">
                     <h2>Oda Kurulumu</h2>
-                    <input type="text" id="custom-room-id" placeholder="Oda Kodu (rastgele için boş bırak)">
-                    <select id="max-players-select">
-                        <option value="5">5 Kişi</option>
-                        <option value="6">6 Kişi</option>
-                        <option value="7">7 Kişi</option>
-                        <option value="8" selected>8 Kişi</option>
-                        <option value="10">10 Kişi</option>
-                    </select>
+                    <input type="text" id="custom-room-id" placeholder="Oda Kodu (İsteğe bağlı)">
                     <button class="btn-main" onclick="confirmCreateRoom()">KUR & KATIL</button>
-                    <button class="btn-cancel" onclick="closeModal()">İPTAL</button>
+                    <button onclick="closeModal()">İPTAL</button>
                 </div>
             </div>
         </section>
@@ -54,57 +38,23 @@
             <div class="top-bar">
                 <div class="room-meta">
                     <span id="room-name-label">Oda</span>
-                    <small id="player-status">Bağlanıyor...</small>
-                    <small id="phase-label">Lobby</small>
                     <small id="timer-label">00:00</small>
-                </div>
-                <div class="admin-panel" id="admin-panel">
-                    <button class="btn-start" onclick="startGame()">BAŞLAT</button>
                 </div>
                 <div class="media-controls">
                     <button id="mic-btn" class="ctrl-btn" onclick="toggleMic()">🎤</button>
-                    <button id="spk-btn" class="ctrl-btn" onclick="toggleSpk()">🔊</button>
                     <button class="leave-btn" onclick="location.reload()">ÇIK</button>
                 </div>
             </div>
-
             <div id="player-grid" class="arena-grid"></div>
-
             <div class="chat-system">
                 <div id="chat-messages"></div>
-                <input type="text" id="chat-input" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter') sendChat()">
-                <button onclick="sendChat()">Gönder</button>
-            </div>
-
-            <div id="night-overlay" class="phase-overlay">
-                <h2>GECE</h2>
-                <p>Hedef Seç</p>
-                <div id="night-targets" class="target-grid"></div>
-            </div>
-
-            <div id="day-overlay" class="phase-overlay">
-                <h2>GÜNDÜZ</h2>
-                <p>Oy Ver</p>
-                <div id="vote-targets" class="target-grid"></div>
-                <div id="vote-results"></div>
-            </div>
-
-            <div id="game-over-overlay" class="phase-overlay">
-                <h2 id="game-over-title">BİTTİ</h2>
-                <p id="game-over-text">Kazanan...</p>
-                <button class="btn-main" onclick="location.reload()">LOBİ</button>
+                <div class="chat-input-row" style="display: flex;">
+                    <input type="text" id="chat-input" placeholder="Mesaj..." onkeydown="if(event.key==='Enter') sendChat()">
+                    <button onclick="sendChat()">🚀</button>
+                </div>
             </div>
         </section>
     </div>
-
-    <!-- Ses Efektleri -->
-    <audio id="sfx-day" src="https://cdn.freesound.org/previews/612/612596_5674468-lq.mp3"></audio>
-    <audio id="sfx-night" src="https://cdn.freesound.org/previews/276/276512_5123856-lq.mp3"></audio>
-    <audio id="sfx-vote" src="https://cdn.freesound.org/previews/341/341695_3248244-lq.mp3"></audio>
-    <audio id="sfx-kill" src="https://cdn.freesound.org/previews/276/276507_5123856-lq.mp3"></audio>
-    <audio id="sfx-win-village" src="https://cdn.freesound.org/previews/270/270307_5123856-lq.mp3"></audio>
-    <audio id="sfx-win-vampire" src="https://cdn.freesound.org/previews/341/341696_3248244-lq.mp3"></audio>
-
     <script src="app.js"></script>
 </body>
 </html>
