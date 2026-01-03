@@ -1,38 +1,221 @@
 :root {
-    --bg: #0f0f0f;
-    --card: #1a1a1a;
+    /* Renk Paleti - Daha Premium bir görünüm için */
+    --bg: #0a0a0b;
+    --card: #161618;
+    --card-hover: #1c1c1e;
     --accent: #ffd700;
-    --text: #fff;
-    --muted: #aaa;
+    --accent-glow: rgba(255, 215, 0, 0.3);
+    --text: #ffffff;
+    --muted: #8e8e93; /* iOS muted text color style */
+    --error: #ff453a;
+    --success: #32d74b;
+    
+    /* Mobil Standartları */
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+    --radius: 18px; /* Modern iOS/Android köşe yumuşaklığı */
 }
 
-body { background: var(--bg); color: var(--text); font-family: system-ui; margin: 0; height: 100vh; overflow: hidden; }
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent; /* Mobil tıklama gölgesini kaldırır */
+}
 
-.screen { display: none; flex-direction: column; height: 100%; }
+body { 
+    background: var(--bg); 
+    color: var(--text); 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0; 
+    height: 100vh; 
+    overflow: hidden; 
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Ekran Geçişleri --- */
+.screen { 
+    display: none; 
+    flex-direction: column; 
+    height: 100%; 
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .screen.active { display: flex; }
 
-.lobby-card, .modal-content { background: var(--card); padding: 20px; border-radius: 16px; margin: 20px; text-align: center; }
+/* --- Kartlar ve Konteynırlar --- */
+.lobby-card, .modal-content { 
+    background: var(--card); 
+    padding: 24px; 
+    border-radius: var(--radius); 
+    margin: 16px; 
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
 
-h1 { color: var(--accent); font-size: 2.5rem; }
+h1 { 
+    color: var(--accent); 
+    font-size: 2.2rem; 
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+}
 
-input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; }
+/* --- Form Elemanları --- */
+input, select { 
+    width: 100%; 
+    padding: 16px; 
+    margin: 10px 0; 
+    border-radius: 12px; 
+    border: 1.5px solid #2c2c2e; 
+    background: #1c1c1e;
+    color: var(--text);
+    font-size: 16px; /* iOS'ta otomatik zoom'u engellemek için minimum 16px */
+    transition: border-color 0.2s;
+}
 
-button.btn-main { background: var(--accent); color: black; font-weight: bold; }
+input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
 
-.room-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+/* --- Butonlar (Dokunmatik Odaklı) --- */
+button {
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    font-family: inherit;
+}
 
-.room-card-item { background: var(--card); padding: 15px; border-radius: 8px; }
+button:active {
+    transform: scale(0.96); /* Tıklama hissi */
+    opacity: 0.8;
+}
 
-.top-bar { background: var(--card); padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+button.btn-main { 
+    background: var(--accent); 
+    color: #000; 
+    font-weight: 700; 
+    padding: 18px;
+    border-radius: 14px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 15px var(--accent-glow);
+}
 
-.arena-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; padding: 10px; overflow-y: auto; }
+/* --- Arena ve Izgara Yapısı --- */
+.room-grid { 
+    display: grid; 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 12px; 
+    padding: 16px;
+}
 
-.player-unit { background: var(--card); padding: 10px; border-radius: 12px; text-align: center; }
+.room-card-item { 
+    background: var(--card); 
+    padding: 20px; 
+    border-radius: var(--radius); 
+    border-left: 4px solid var(--accent);
+}
 
-.chat-system { background: var(--card); padding: 10px; height: 35%; display: flex; flex-direction: column; }
+.top-bar { 
+    background: rgba(22, 22, 24, 0.8);
+    backdrop-filter: blur(10px); /* Modern cam efekti */
+    padding: 15px 20px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
 
-#chat-messages { flex: 1; overflow-y: auto; padding: 10px; background: var(--bg); border-radius: 8px; }
+.arena-grid { 
+    flex: 1; 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); /* Mobilde 3'lü dizilim daha iyidir */
+    gap: 12px; 
+    padding: 16px; 
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* iOS kaydırma akıcılığı */
+}
 
-#chat-input { flex: 1; background: var(--bg); color: var(--text); border-radius: 8px; }
+.player-unit { 
+    background: var(--card); 
+    padding: 12px; 
+    border-radius: 14px; 
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.05);
+}
 
-.media-controls button { width: 50px; height: 50px; border-radius: 50%; background: var(--card); border: 2px solid var(--accent); font-size: 1.5rem; }
+.player-unit img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    margin-bottom: 8px;
+}
+
+/* --- Gelişmiş Chat Sistemi --- */
+.chat-system { 
+    background: var(--card); 
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    padding: 15px; 
+    height: 40%; 
+    display: flex; 
+    flex-direction: column;
+    box-shadow: 0 -10px 20px rgba(0,0,0,0.3);
+}
+
+#chat-messages { 
+    flex: 1; 
+    overflow-y: auto; 
+    padding: 10px; 
+    background: rgba(0,0,0,0.2); 
+    border-radius: 12px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.chat-input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#chat-input { 
+    background: #2c2c2e; 
+    color: var(--text); 
+    border: none;
+    border-radius: 20px;
+    padding: 12px 18px;
+}
+
+/* --- Media / Control Buttons --- */
+.media-controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px;
+}
+
+.media-controls button { 
+    width: 56px; 
+    height: 56px; 
+    border-radius: 50%; 
+    background: var(--card); 
+    border: 2px solid var(--accent); 
+    font-size: 1.2rem;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Custom Scrollbar (Android/Chrome) */
+#chat-messages::-webkit-scrollbar { width: 4px; }
+#chat-messages::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 10px; }
