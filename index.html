@@ -3,50 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VK ROYALS</title>
+    <title>VK ROYALS VIDEO</title>
     <link rel="stylesheet" href="style.css">
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+    <div id="snow-container"></div>
+    
     <div id="master-wrap">
         <section id="lobby" class="screen active">
             <div class="lobby-card">
-                <h1 class="glitch-text">VK ROYALS</h1>
-                <div class="avatar-box">
-                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77">
-                    <p>Değiştirmek için resme dokun</p>
-                </div>
-                <input type="text" id="nickname" placeholder="Lakabın..." maxlength="15">
-                <button id="btn-create-open" class="btn-main">YENİ ODA KUR</button>
-                <div class="divider">VEYA KODLA KATIL</div>
-                <input type="text" id="join-room-code" placeholder="Oda Kodu...">
-                <button id="btn-join-action" class="btn-main">KATIL</button>
-            </div>
-
-            <div id="create-modal" class="modal">
-                <div class="modal-content">
-                    <h2>Oda Kur</h2>
-                    <input type="text" id="custom-room-id" placeholder="Oda Adı (Boş bırakabilirsin)">
-                    <button id="btn-confirm-create" class="btn-main">KUR VE BAŞLA</button>
-                    <button id="btn-close-modal" style="background:#444; color:white;">İPTAL</button>
-                </div>
+                <h1 style="color:var(--accent)">🎄 VK ROYALS 🎄</h1>
+                <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=1" style="width:100px; border:3px solid var(--accent); border-radius:50%">
+                <input type="text" id="nickname" placeholder="Lakabın...">
+                <button id="btn-join" class="btn-main">GÖRÜNTÜLÜ BAŞLAT</button>
             </div>
         </section>
 
         <section id="game-room" class="screen">
             <div class="top-bar">
-                <span id="room-name-label">ODA</span>
-                <div class="media-controls">
-                    <button id="mic-btn" class="ctrl-btn">🎤</button>
-                    <button id="leave-btn" class="leave-btn">ÇIK</button>
+                <span id="room-label">ODA</span>
+                <div style="display:flex; gap:10px">
+                    <button id="mic-btn" style="width:40px; padding:10px">🎤</button>
+                    <button id="cam-btn" style="width:40px; padding:10px">📹</button>
+                    <button onclick="location.reload()" style="background:red; color:white; width:50px; padding:10px">ÇIK</button>
                 </div>
             </div>
-            <div id="player-grid" class="arena-grid"></div>
+            <div id="player-grid" class="arena-grid">
+                </div>
             <div class="chat-system">
                 <div id="chat-messages"></div>
                 <div class="chat-input-row">
-                    <input type="text" id="chat-input" placeholder="Mesaj yaz...">
-                    <button id="btn-send-chat">🚀</button>
+                    <input type="text" id="chat-input" placeholder="Mesaj...">
+                    <button id="btn-send">🚀</button>
                 </div>
             </div>
         </section>
