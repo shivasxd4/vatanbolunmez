@@ -1,4 +1,4 @@
-/* VK ROYALS V9 PREMIUM MOBILE CSS */
+/* VK ROYALS V12 - FINAL PREMIUM CSS */
 :root {
     --bg-main: #0a0a0c;
     --gold: #ffcf33;
@@ -17,8 +17,7 @@
 }
 
 body {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     background: var(--bg-main);
     color: #ffffff;
     font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -26,18 +25,11 @@ body {
     overflow: hidden;
 }
 
-/* LOBBY SCREEN */
-.screen {
-    display: none;
-    height: 100%;
-    width: 100%;
-}
+/* EKRAN YÖNETİMİ */
+.screen { display: none; height: 100%; width: 100%; }
+.screen.active { display: flex; flex-direction: column; }
 
-.screen.active {
-    display: flex;
-    flex-direction: column;
-}
-
+/* LOBBY TASARIMI */
 #lobby {
     justify-content: center;
     align-items: center;
@@ -45,8 +37,7 @@ body {
 }
 
 .lobby-card {
-    width: 90%;
-    max-width: 400px;
+    width: 90%; max-width: 400px;
     padding: 35px 25px;
     background: rgba(25, 25, 28, 0.95);
     border-radius: 35px;
@@ -56,300 +47,104 @@ body {
 }
 
 .lobby-card input {
-    width: 100%;
-    padding: 16px;
-    margin: 12px 0;
-    border-radius: 15px;
-    border: 1px solid #333;
-    background: #111;
-    color: white;
-    font-size: 16px;
-    text-align: center;
+    width: 100%; padding: 16px; margin: 12px 0;
+    border-radius: 15px; border: 1px solid #333;
+    background: #111; color: white; font-size: 16px; text-align: center;
 }
 
 .btn-primary {
-    width: 100%;
-    padding: 18px;
-    background: var(--gold);
-    color: #000;
-    border: none;
-    border-radius: 15px;
-    font-weight: 800;
-    font-size: 16px;
-    letter-spacing: 1px;
-    margin-top: 10px;
+    width: 100%; padding: 18px;
+    background: var(--gold); color: #000;
+    border: none; border-radius: 15px;
+    font-weight: 800; font-size: 16px;
     transition: transform 0.2s;
 }
 
-.btn-primary:active {
-    transform: scale(0.96);
-}
+.btn-primary:active { transform: scale(0.96); }
 
-.private-box {
-    margin-top: 25px;
-    padding-top: 20px;
-    border-top: 1px solid #333;
-}
-
-.room-btns {
-    display: flex;
-    gap: 10px;
-}
-
-.room-btns button {
-    flex: 1;
-    padding: 12px;
-    border-radius: 12px;
-    border: 1px solid #444;
-    background: #222;
-    color: white;
-    font-weight: bold;
-}
-
-/* GAME SCREEN */
-#game {
-    position: relative;
-    background: #000;
-}
-
-#video-wrapper {
-    flex: 1;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-}
-
-#remote-container {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
-    background: #000;
-}
-
-.remote-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* LOCAL VIDEO (PIP) */
-#local-container {
-    position: absolute;
-    top: calc(var(--safe-top) + 10px);
-    right: 15px;
-    width: 110px;
-    height: 160px;
-    background: #111;
+/* ADMIN KONTROL PANELİ */
+#admin-panel {
+    position: absolute; top: var(--safe-top); left: 15px;
+    z-index: 999; background: rgba(0, 0, 0, 0.85);
+    padding: 15px; border-radius: 20px;
     border: 2px solid var(--gold);
-    border-radius: 20px;
-    overflow: hidden;
-    z-index: 100;
+    display: none; flex-direction: column; gap: 10px;
+    box-shadow: var(--shadow);
+}
+
+#admin-panel p { margin: 0; color: var(--gold); font-size: 12px; font-weight: bold; text-align: center; }
+
+#admin-panel button {
+    padding: 10px; border-radius: 10px; border: none;
+    background: #333; color: white; font-size: 13px; font-weight: bold;
+}
+
+#admin-panel button:active { background: var(--gold); color: #000; }
+
+/* VİDEO ALANI */
+#video-wrapper { flex: 1; position: relative; background: #000; }
+#remote-container { flex: 1; display: grid; background: #000; height: 100%; width: 100%; }
+.remote-video { width: 100%; height: 100%; object-fit: cover; }
+
+/* YEREL KAMERA (PIP) & CANVAS */
+#local-container {
+    position: absolute; top: calc(var(--safe-top) + 10px); right: 15px;
+    width: 110px; height: 155px;
+    background: #000; border: 2px solid var(--gold);
+    border-radius: 20px; overflow: hidden; z-index: 100;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
-#my-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+#my-video, #face-canvas {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; object-fit: cover;
 }
 
-#face-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 101;
-}
+.mirror { transform: scaleX(-1); }
 
-.mirror {
-    transform: scaleX(-1);
-}
-
-/* UI OVERLAY */
+/* UI ÜST KATMAN */
 .ui-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
+    position: absolute; bottom: 0; left: 0; width: 100%;
     padding: 20px 10px calc(var(--safe-bottom) + 10px);
-    background: linear-gradient(transparent, rgba(0,0,0,0.9) 40%);
+    background: linear-gradient(transparent, rgba(0,0,0,0.9) 60%);
     z-index: 200;
 }
 
-/* EFFECTS BAR */
+/* EFEKT SEÇİCİ BAR */
 .fx-bar {
-    display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    padding: 10px 5px 20px;
-    scrollbar-width: none;
+    display: flex; gap: 12px; overflow-x: auto;
+    padding: 10px 5px 20px; scrollbar-width: none;
 }
-
-.fx-bar::-webkit-scrollbar {
-    display: none;
-}
+.fx-bar::-webkit-scrollbar { display: none; }
 
 .fx-card {
-    flex: 0 0 75px;
-    height: 85px;
-    background: var(--glass);
-    border-radius: 22px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid rgba(255,255,255,0.05);
-    transition: all 0.2s;
+    flex: 0 0 75px; height: 85px;
+    background: var(--glass); border-radius: 22px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s;
 }
 
-.fx-card:active {
-    transform: scale(0.9);
-    background: var(--glass-heavy);
-}
+.fx-card:active { transform: scale(0.9); background: var(--glass-heavy); }
+.fx-card.active-fx { background: var(--gold); border-color: var(--gold); color: #000; }
+.fx-card.active-fx span, .fx-card.active-fx p { color: #000; }
 
-.fx-card.active-fx {
-    background: var(--gold);
-    border-color: var(--gold);
-}
+.fx-card span { font-size: 24px; margin-bottom: 4px; }
+.fx-card p { font-size: 10px; margin: 0; font-weight: 700; opacity: 0.9; }
 
-.fx-card.active-fx span, .fx-card.active-fx p {
-    color: #000;
-}
-
-.fx-card span {
-    font-size: 26px;
-    margin-bottom: 4px;
-}
-
-.fx-card p {
-    font-size: 10px;
-    margin: 0;
-    font-weight: 700;
-    opacity: 0.8;
-}
-
-/* NAVIGATION BAR */
-.nav-bar {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    margin-top: 10px;
-}
+/* ALT NAVİGASYON */
+.nav-bar { display: flex; justify-content: space-around; align-items: center; }
 
 .nav-btn {
-    width: 65px;
-    height: 65px;
-    border-radius: 50%;
-    border: none;
-    background: var(--glass-heavy);
-    color: white;
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 65px; height: 65px; border-radius: 50%;
+    border: none; background: var(--glass-heavy);
+    color: white; font-size: 24px;
+    display: flex; align-items: center; justify-content: center;
     transition: all 0.2s;
 }
 
-.nav-btn:active {
-    transform: scale(0.85);
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.active-red {
-    background: var(--accent) !important;
-}
+.nav-btn:active { transform: scale(0.85); background: #fff; color: #000; }
 
 .quit-btn {
-    width: 100px;
-    border-radius: 20px;
-    background: var(--accent);
-    font-size: 14px;
-    font-weight: 800;
-}
-
-/* SNOW EFFECT LAYER */
-#snow-layer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 999;
-}
-
-
-/* Bıyık Overlay */
-#mustache-overlay {
-    position: absolute;
-    display: none;
-    z-index: 110;
-    pointer-events: none;
-    transition: all 0.05s ease; /* Takip yumuşatma */
-}
-
-/* Local Video Container (Geliştirildi) */
-#local-container {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 120px;
-    height: 160px;
-    border: 2px solid #ffd700;
-    border-radius: 15px;
-    z-index: 100;
-    background: #000;
-}
-
-#my-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 13px;
-}
-
-.active-fx {
-    background: #ffd700 !important;
-    color: #000 !important;
-}
-
-/* Admin Kontrol Paneli */
-#admin-panel {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 999;
-    background: rgba(0, 0, 0, 0.85);
-    padding: 15px;
-    border-radius: 15px;
-    border: 2px solid #ffd700;
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-}
-
-#admin-panel p {
-    margin: 0;
-    color: #ffd700;
-    font-size: 12px;
-    font-weight: bold;
-    text-align: center;
-}
-
-#admin-panel button {
-    padding: 10px;
-    border-radius: 10px;
-    border: none;
-    background: #333;
-    color: white;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-#admin-panel button:active {
-    background: var(--gold);
-    color: #000;
+    width: 90px; border-radius: 20px;
+    background: var(--accent); font-size: 14px; font-weight: 800;
 }
