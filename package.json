@@ -1,7 +1,7 @@
 {
   "name": "vk-royals",
   "version": "1.0.0",
-  "description": "Sesli Vampir Köy Oyunu - VK Royals",
+  "description": "Vampire Kingdom Voice Chat",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
