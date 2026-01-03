@@ -92,7 +92,7 @@ async function startFaceTracking() {
             if (activeEffect === 'mustache') {
                 // Bıyığı burun altı ve üst dudak arasına tam oturt
                 const mustacheImg = new Image();
-                mustacheImg.src = "https://png.pngtree.com/png-vector/20240924/ourmid/pngtree-sleek-stache-3d-mustache-art-in-black-and-white-png-image_13895382.png";
+                mustacheImg.src = "https://png.pngtree.com/png-clipart/20240814/original/pngtree-hercule-poirot-fake-moustache-isolated-png-image_15771523.png";
                 
                 // Bıyık merkezi: Burnun alt noktası (Nose[6]) ile üst dudağın ortası (Mouth[14])
                 const x = nose[6].x;
@@ -225,3 +225,4 @@ window.switchCamera = async () => {
     currentFacing = currentFacing === "user" ? "environment" : "user";
     await startMedia();
 };
+
