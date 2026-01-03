@@ -1,23 +1,20 @@
 const socket = io();
-let localStream, processedStream, audioCtx;
-let pcs = {}; // Çoklu bağlantı desteği
-let myRoomId = null;
-let facingMode = "user";
+let localStream, processedStream, audioCtx, pc;
+let currentFacing = "user";
 let audioFx = "normal";
+let isMustacheOn = false;
+let isBeautyOn = false;
 
-// Kar Efekti
-function createSnow() {
-    const s = document.createElement('div');
-    s.className = 'snowflake'; s.innerText = '❄';
-    s.style.left = Math.random() * 100 + 'vw';
-    s.style.animationDuration = (Math.random() * 3 + 2) + 's';
-    document.body.appendChild(s);
-    setTimeout(() => s.remove(), 5000);
+// --- MODEL YÜKLEME ---
+async function loadModels() {
+    await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+    await faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+    console.log("Modeller Yüklendi!");
 }
-setInterval(createSnow, 400);
+loadModels();
 
-// --- SES İŞLEME ---
-async function setupAudio(stream) {
+// --- SES MOTORU ---
+async function setupAudioFX(stream) {
     if (audioCtx) audioCtx.close();
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
@@ -29,9 +26,8 @@ async function setupAudio(stream) {
         let output = e.outputBuffer.getChannelData(0);
         for (let i = 0; i < input.length; i++) {
             if (audioFx === 'bebek') output[i] = input[i * 2 % input.length];
-            else if (audioFx === 'kalin') output[i] = input[Math.floor(i / 1.6)];
-            else if (audioFx === 'kadin') output[i] = input[i * 1.3 % input.length];
-            else if (audioFx === 'yanki') output[i] = input[i] + (output[i-2500] || 0) * 0.4;
+            else if (audioFx === 'kadin') output[i] = input[i * 1.4 % input.length];
+            else if (audioFx === 'kalin') output[i] = input[Math.floor(i / 1.7)];
             else output[i] = input[i];
         }
     };
@@ -40,125 +36,80 @@ async function setupAudio(stream) {
     return new MediaStream([...stream.getVideoTracks(), ...destination.stream.getAudioTracks()]);
 }
 
-// --- MEDYA ---
+// --- MEDYA BAŞLAT ---
 async function initMedia() {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: true });
-    processedStream = await setupAudio(localStream);
-    const myVid = document.getElementById('my-video');
-    myVid.srcObject = localStream;
-    facingMode === "user" ? myVid.classList.add('mirror') : myVid.classList.remove('mirror');
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    localStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: currentFacing }, audio: true
+    });
+    processedStream = await setupAudioFX(localStream);
+    const videoEl = document.getElementById('my-video');
+    videoEl.srcObject = localStream;
+    currentFacing === "user" ? videoEl.classList.add('mirror') : videoEl.classList.remove('mirror');
+    
+    if(isMustacheOn) startFaceTracking();
+    return processedStream;
 }
 
-// --- GİRİŞ VE EŞLEŞME ---
-window.startRandom = async () => {
-    await initMedia();
-    socket.emit('join-random', { nickname: document.getElementById('nickname').value || "Vampir" });
-    switchToGame();
+// --- KAMERA DEĞİŞTİR (SES KORUMALI) ---
+window.switchCamera = async () => {
+    currentFacing = currentFacing === "user" ? "environment" : "user";
+    const newStream = await initMedia();
+    if (pc) {
+        const vTrack = newStream.getVideoTracks()[0];
+        const aTrack = newStream.getAudioTracks()[0];
+        const vSender = pc.getSenders().find(s => s.track.kind === 'video');
+        const aSender = pc.getSenders().find(s => s.track.kind === 'audio');
+        if (vSender) vSender.replaceTrack(vTrack);
+        if (aSender) aSender.replaceTrack(aTrack);
+    }
 };
 
-window.startPrivate = async (limit) => {
-    const code = document.getElementById('room-code').value;
-    if (!code) return alert("Oda kodu gir!");
-    await initMedia();
-    myRoomId = code;
-    socket.emit('join-private', { roomId: code, limit, userData: { nickname: "Üye" } });
-    switchToGame();
-};
+// --- FACE TRACKING (BIYIK) ---
+async function startFaceTracking() {
+    const video = document.getElementById('my-video');
+    const canvas = document.getElementById('face-canvas');
+    const img = document.getElementById('mustache-img');
+    const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+    faceapi.matchDimensions(canvas, displaySize);
 
-function switchToGame() {
-    document.getElementById('lobby').classList.remove('active');
-    document.getElementById('game').classList.add('active');
-}
-
-// --- PEER CONNECTION MANTIĞI ---
-function createPeer(targetId, initiator) {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    pcs[targetId] = pc;
-
-    processedStream.getTracks().forEach(track => pc.addTrack(track, processedStream));
-
-    pc.onicecandidate = e => {
-        if (e.candidate) socket.emit('signal', { to: targetId, signal: e.candidate });
-    };
-
-    pc.ontrack = e => {
-        let remoteVid = document.getElementById(`vid-${targetId}`);
-        if (!remoteVid) {
-            remoteVid = document.createElement('video');
-            remoteVid.id = `vid-${targetId}`;
-            remoteVid.autoplay = true;
-            remoteVid.playsinline = true;
-            remoteVid.className = "remote-video";
-            remoteVid.onclick = () => remoteVid.classList.toggle('fullscreen');
-            document.getElementById('video-grid').appendChild(remoteVid);
+    setInterval(async () => {
+        if (!isMustacheOn) {
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            return;
         }
-        remoteVid.srcObject = e.streams[0];
-    };
+        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
-    if (initiator) {
-        pc.createOffer().then(offer => {
-            pc.setLocalDescription(offer);
-            socket.emit('signal', { to: targetId, signal: offer });
+        resizedDetections.forEach(detection => {
+            const marks = detection.landmarks.getUpperLip(); // Üst dudak noktaları
+            const x = marks[0].x;
+            const y = marks[0].y - 10;
+            canvas.getContext('2d').drawImage(img, x, y, 60, 30);
         });
-    }
-
-    return pc;
+    }, 100);
 }
-
-// --- SOCKET OLAYLARI ---
-socket.on('start-call', data => createPeer(data.targetId, data.initiator));
-
-socket.on('existing-users', users => {
-    users.forEach(id => createPeer(id, true));
-});
-
-socket.on('user-joined-room', data => {
-    createPeer(data.id, false);
-});
-
-socket.on('signal', async data => {
-    let pc = pcs[data.from];
-    if (!pc) pc = createPeer(data.from, false);
-
-    if (data.signal.type === 'offer') {
-        await pc.setRemoteDescription(data.signal);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('signal', { to: data.from, signal: answer });
-    } else if (data.signal.type === 'answer') {
-        await pc.setRemoteDescription(data.signal);
-    } else if (data.signal.candidate) {
-        await pc.addIceCandidate(data.signal);
-    }
-});
-
-socket.on('user-left', id => {
-    if (pcs[id]) {
-        pcs[id].close();
-        delete pcs[id];
-    }
-    const el = document.getElementById(`vid-${id}`);
-    if (el) el.remove();
-});
 
 // --- KONTROLLER ---
-window.flipCamera = async () => {
-    facingMode = facingMode === "user" ? "environment" : "user";
+window.toggleMustache = () => {
+    isMustacheOn = !isMustacheOn;
+    if (isMustacheOn) startFaceTracking();
+};
+
+window.changeAudioFx = (type) => audioFx = type;
+
+window.toggleBeauty = () => {
+    isBeautyOn = !isBeautyOn;
+    document.getElementById('my-video').style.filter = isBeautyOn ? "brightness(1.1) saturate(1.2) contrast(1.1) blur(0.2px)" : "none";
+};
+
+window.startCall = async (type, limit = 2) => {
     await initMedia();
-    Object.values(pcs).forEach(pc => {
-        const videoTrack = processedStream.getVideoTracks()[0];
-        const sender = pc.getSenders().find(s => s.track.kind === 'video');
-        sender.replaceTrack(videoTrack);
-    });
-};
-
-window.toggleMic = () => {
-    const t = localStream.getAudioTracks()[0];
-    t.enabled = !t.enabled;
-    document.getElementById('mic-btn').innerText = t.enabled ? "🎤" : "🔇";
-};
-
-window.setAudioFx = (fx) => {
-    audioFx = fx;
-    document.getElementById('fx-menu').style.display = 'none';
+    const userData = { nickname: document.getElementById('nickname').value || "Gizemli" };
+    if (type === 'random') socket.emit('join-random', userData);
+    else socket.emit('join-private', { roomId: document.getElementById('room-code').value, limit, userData });
+    
+    document.getElementById('lobby').classList.remove('active');
+    document.getElementById('game').classList.add('active');
 };
