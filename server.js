@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,19 +22,14 @@ io.on('connection', (socket) => {
         } else { waitingUsers.push(socket); }
     });
 
-    socket.on('join-private', ({ roomId, userData, limit }) => {
-        const room = io.sockets.adapter.rooms.get(roomId);
-        if (!room || room.size < limit) {
-            socket.join(roomId);
-            socket.emit('private-joined', { roomId, otherUsers: Array.from(room || []).filter(id => id !== socket.id) });
-            socket.to(roomId).emit('user-connected', { id: socket.id, userData });
-        } else { socket.emit('error-msg', 'Oda dolu!'); }
-    });
-
     socket.on('signal', data => io.to(data.to).emit('signal', { from: socket.id, signal: data.signal }));
     socket.on('send-chat', data => io.to(data.roomId).emit('receive-chat', data));
-    socket.on('disconnect', () => io.emit('user-disconnected', socket.id));
+    
+    socket.on('disconnect', () => {
+        waitingUsers = waitingUsers.filter(u => u.id !== socket.id);
+        io.emit('user-disconnected', socket.id);
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`VK V5 Online on ${PORT}`));
+server.listen(PORT, () => console.log(`VK V6 Aktif: ${PORT}`));
