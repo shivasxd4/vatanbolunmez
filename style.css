@@ -1,410 +1,208 @@
-/* style.css - ESKİ VE DÜŞÜK DONANIMLI TELEFONLARDA BİLE AKICI ÇALIŞAN, YÜKSEK FPS, MODERN TASARIM */
-/* Blur, gradient, shadow, animation minimumda tutuldu → maksimum performans */
-
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap');
+/* style.css - MODERN BLIND ID TARZI, SOHBET ODAKLI, KARANLIK & ŞIK TASARIM */
+/* Düşük donanım uyumlu, FPS yüksek, karışıklık giderildi */
 
 :root {
-    --gold: #d4af37;
-    --gold-dark: #b8932a;
-    --red: #ff3333;
-    --blood: #990000;
-    --dark: #0d0d0f;
-    --glass: rgba(20,20,30,0.7);
-    --text: #ffffff;
-    --gray: #aaaaaa;
+    --bg-dark: #1a1a1a;
+    --bg-light: #2a2a2a;
+    --gold: #ffd700;
+    --red: #ff4d4d;
+    --text: #f0f0f0;
+    --gray: #a0a0a0;
+    --border: #404040;
 }
 
 * {
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    -webkit-tap-highlight-color: transparent;
-}
-
-body, html {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #000;
+    font-family: sans-serif;
     color: var(--text);
-    font-family: 'Montserrat', sans-serif;
-    overflow: hidden;
-    touch-action: manipulation; /* Daha iyi dokunma performansı */
 }
 
-#master-wrap {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    background: var(--dark);
+body {
+    background: var(--bg-dark);
+    height: 100vh;
+    overflow: hidden;
 }
 
 .screen {
-    position: absolute;
-    inset: 0;
     display: none;
     flex-direction: column;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    height: 100%;
 }
 
 .screen.active {
     display: flex;
-    opacity: 1;
-}
-
-/* LOBBY */
-#lobby {
-    background: var(--dark);
-    justify-content: center;
-    align-items: center;
-    padding: 15px;
 }
 
 .lobby-card {
-    width: 100%;
-    max-width: 380px;
-    padding: 35px 20px;
-    background: rgba(15,15,20,0.9);
-    border: 3px solid var(--gold);
-    border-radius: 20px;
+    background: var(--bg-light);
+    border-radius: 15px;
+    padding: 20px;
+    margin: 20px;
     text-align: center;
 }
 
 .glitch-text {
-    font-size: 2.4rem;
-    font-weight: 700;
+    font-size: 2rem;
     color: var(--gold);
-    margin-bottom: 25px;
-    letter-spacing: 4px;
 }
 
 .avatar-box img {
-    width: 120px;
-    height: 120px;
-    border: 4px solid var(--gold);
+    width: 100px;
     border-radius: 50%;
-    cursor: pointer;
-}
-
-.avatar-box p {
-    margin-top: 10px;
-    font-size: 14px;
-    color: var(--gray);
+    border: 2px solid var(--gold);
 }
 
 .input-group input {
     width: 100%;
-    padding: 16px;
-    margin: 20px 0;
-    background: #111;
-    border: 2px solid #444;
-    border-radius: 12px;
-    color: #fff;
-    font-size: 16px;
+    padding: 12px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 10px 0;
 }
 
 .room-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin: 20px 0;
-    max-height: 200px;
-    overflow-y: auto;
+    gap: 10px;
 }
 
 .room-card-item {
-    background: var(--glass);
-    padding: 14px;
-    border-radius: 12px;
-    border: 2px solid #555;
-    font-size: 14px;
-    cursor: pointer;
+    background: var(--bg-dark);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
 }
 
-.room-card-item.full {
-    opacity: 0.5;
-    border-color: var(--red);
-}
-
-/* MODAL */
 .modal {
     position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.95);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 100;
 }
 
-.modal.active { display: flex; }
+.modal.active {
+    display: flex;
+}
 
 .modal-content {
-    background: rgba(15,15,20,0.95);
-    padding: 30px;
-    border-radius: 20px;
-    border: 3px solid var(--gold);
+    background: var(--bg-light);
+    padding: 20px;
+    border-radius: 15px;
     width: 90%;
-    max-width: 360px;
-    text-align: center;
 }
 
-.modal-content h2 {
-    font-size: 1.8rem;
-    color: var(--gold);
-    margin-bottom: 20px;
-}
-
-.modal-content input,
-.modal-content select {
-    width: 100%;
-    padding: 14px;
-    margin: 12px 0;
-    background: #111;
-    border: 2px solid #444;
-    border-radius: 10px;
-    color: #fff;
-    font-size: 16px;
-}
-
-/* OYUN ODASI */
 .top-bar {
-    height: 90px;
-    padding: 15px;
-    background: #000;
-    border-bottom: 3px solid var(--gold);
+    background: var(--bg-light);
+    padding: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-}
-
-.room-meta {
-    text-align: left;
-}
-
-#room-name-label {
-    font-size: 1.6rem;
-    color: var(--gold);
-    font-weight: 700;
-}
-
-#player-status,
-#phase-label,
-#timer-label {
-    display: block;
-    font-size: 13px;
-    margin-top: 4px;
-}
-
-#timer-label {
-    font-size: 1.4rem;
-    color: var(--gold);
-}
-
-.admin-zone {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    border-bottom: 1px solid var(--border);
 }
 
 .arena-grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 12px;
-    padding: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 10px;
+    padding: 10px;
     overflow-y: auto;
 }
 
 .player-unit {
-    background: var(--glass);
-    padding: 12px;
-    border-radius: 16px;
-    border: 2px solid transparent;
+    background: var(--bg-dark);
+    padding: 10px;
+    border-radius: 8px;
     text-align: center;
-    position: relative;
+    border: 1px solid var(--border);
 }
 
 .player-unit.is-admin {
     border-color: var(--gold);
 }
 
-.player-unit.dead-player {
-    opacity: 0.4;
-}
-
-.player-unit.dead-player::after {
-    content: "💀";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 3rem;
-}
-
-.avatar-wrap img {
-    width: 100%;
-    border-radius: 50%;
-    border: 2px solid #444;
-}
-
-.p-name {
-    margin-top: 8px;
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--gold);
-}
-
-/* FAZ OVERLAY */
-.phase-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0,0,0,0.96);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 50;
-    text-align: center;
-    padding: 20px;
-}
-
-.phase-overlay.active { display: flex; }
-
-.phase-overlay h2 {
-    font-size: 2.2rem;
-    margin-bottom: 20px;
-    color: var(--gold);
-}
-
-#night-phase-overlay h2 { color: var(--red); }
-
-.target-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    width: 90%;
-    margin: 20px 0;
-}
-
-.target-btn {
-    background: var(--glass);
-    padding: 18px;
-    border-radius: 14px;
-    border: 3px solid transparent;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.target-btn:hover {
-    border-color: var(--gold);
-}
-
-#vote-results {
-    font-size: 1.2rem;
-    color: var(--gold);
-    margin-top: 15px;
-    padding: 10px;
-    background: var(--glass);
-    border-radius: 10px;
-}
-
-/* CHAT */
 .chat-system {
-    height: 30%;
-    background: rgba(10,10,15,0.9);
-    border-top: 3px solid var(--gold);
-    display: flex;
-    flex-direction: column;
+    background: var(--bg-light);
+    padding: 10px;
+    border-top: 1px solid var(--border);
 }
 
 #chat-messages {
-    flex: 1;
-    padding: 15px;
+    height: 150px;
     overflow-y: auto;
-    font-size: 14px;
 }
-
-#chat-messages b { color: var(--gold); }
 
 .chat-input-row {
     display: flex;
-    padding: 10px;
-    gap: 10px;
 }
 
 .chat-input-row input {
     flex: 1;
-    padding: 14px;
-    background: #111;
-    border: 2px solid #444;
-    border-radius: 12px;
-    color: #fff;
+    padding: 10px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 
-/* BUTONLAR */
-.btn-main {
+.phase-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    padding: 16px;
-    background: var(--gold);
-    border: none;
-    border-radius: 12px;
-    color: #000;
-    font-weight: 700;
-    font-size: 1.1rem;
-    cursor: pointer;
-    margin-top: 10px;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
-.btn-start-game {
-    padding: 12px 24px;
+.phase-overlay.active {
+    display: flex;
+}
+
+.target-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 80%;
+}
+
+.target-btn {
+    background: var(--bg-light);
+    padding: 15px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.btn-main {
     background: var(--gold);
-    border: none;
-    border-radius: 12px;
     color: #000;
-    font-weight: 700;
-    font-size: 1rem;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    width: 100%;
+    margin: 10px 0;
+    cursor: pointer;
 }
 
 .ctrl-btn {
-    width: 48px;
-    height: 48px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
     border-radius: 50%;
-    border: 3px solid var(--gold);
-    background: transparent;
-    color: #fff;
-    font-size: 1.4rem;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
 }
 
 .ctrl-btn.off {
     background: var(--red);
-    border-color: var(--red);
-}
-
-.leave-btn {
-    padding: 10px 18px;
-    background: var(--blood);
-    border: none;
-    border-radius: 12px;
-    color: #fff;
-    font-weight: bold;
-}
-
-/* PERFORMANS İYİLEŞTİRMELERİ */
-* {
-    transform: translateZ(0); /* GPU hızlandırma */
-    -webkit-font-smoothing: antialiased;
-}
-
-/* SCROLLBAR BASİTLEŞTİRİLDİ */
-::-webkit-scrollbar {
-    width: 6px;
-}
-::-webkit-scrollbar-thumb {
-    background: var(--gold);
-    border-radius: 3px;
 }
