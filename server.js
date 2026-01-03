@@ -7,7 +7,6 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: "*" } });
 
-// Tüm dosyalar kök dizinde olduğu için express.static'i "." (mevcut dizin) yapıyoruz
 app.use(express.static(__dirname));
 
 const rooms = {};
@@ -16,28 +15,27 @@ io.on('connection', (socket) => {
     socket.on('join-room', ({ roomId, nickname, avatar }) => {
         socket.join(roomId);
         if (!rooms[roomId]) rooms[roomId] = [];
-        const userData = { id: socket.id, nickname, avatar };
-        rooms[roomId].push(userData);
-
-        const otherUsers = rooms[roomId].filter(u => u.id !== socket.id);
+        rooms[roomId].push({ id: socket.id, nickname, avatar });
+        
+        const otherUsers = rooms[roomId].filter(u => u.id !== socket.id).map(u => u.id);
         socket.emit('all-users', otherUsers);
         io.to(roomId).emit('room-update', rooms[roomId]);
     });
 
-    socket.on('sending-signal', p => {
-        io.to(p.userToSignal).emit('user-joined', { signal: p.signal, callerID: p.callerID });
+    socket.on('offer', payload => {
+        io.to(payload.userToSignal).emit('offer', { sdp: payload.sdp, callerID: payload.callerID });
     });
 
-    socket.on('returning-signal', p => {
-        io.to(p.callerID).emit('receiving-returned-signal', { signal: p.signal, id: socket.id });
+    socket.on('answer', payload => {
+        io.to(payload.callerID).emit('answer', { sdp: payload.sdp, id: socket.id });
+    });
+
+    socket.on('ice-candidate', payload => {
+        io.to(payload.target).emit('ice-candidate', { candidate: payload.candidate, from: socket.id });
     });
 
     socket.on('send-chat', (data) => {
-        io.to(data.roomId).emit('receive-chat', {
-            sender: data.nickname,
-            message: data.message,
-            time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-        });
+        io.to(data.roomId).emit('receive-chat', data);
     });
 
     socket.on('disconnect', () => {
@@ -49,4 +47,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`VK Royals running on ${PORT}`));
