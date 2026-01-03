@@ -5,78 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VK ROYALS | VAMPIRE KINGDOM</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Socket.io client sunucudan otomatik yüklenir (Railway uyumlu) -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
 </head>
 <body>
     <div id="master-wrap">
-        <!-- LOBBY EKRANI -->
         <section id="lobby" class="screen active">
             <div class="lobby-card">
                 <h1 class="glitch-text">VK ROYALS</h1>
                 
                 <div class="avatar-box">
-                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77" onclick="window.nextAvatar()">
+                    <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=77" onclick="nextAvatar()">
                     <p>Değiştirmek için dokun</p>
                 </div>
 
                 <div class="input-group">
-                    <input type="text" id="nickname" placeholder="Kraliyet Lakabın..." maxlength="15">
+                    <input type="text" id="nickname" placeholder="Lakabın..." maxlength="15">
                 </div>
 
                 <div class="lobby-actions">
-                    <button class="btn-main" onclick="window.showCreateModal()">YENİ ODA KUR</button>
-                    
-                    <div class="divider">VEYA HAZIR ODALARA KATIL</div>
+                    <button class="btn-main" onclick="showCreateModal()">YENİ ODA KUR</button>
+                    <div class="divider">HAZIR ODALAR</div>
                     <div id="public-rooms" class="room-grid"></div>
-                    
-                    <div class="divider">ÖZEL ODA KODU İLE KATIL</div>
-                    <div class="input-group" style="margin-top:15px;">
-                        <input type="text" id="join-room-code" placeholder="Özel Oda Kodunu Gir...">
-                        <button class="btn-main" style="margin-top:10px;" onclick="window.joinByCode()">KATIL</button>
-                    </div>
+                    <div class="divider">ÖZEL ODA KATIL</div>
+                    <input type="text" id="join-room-code" placeholder="Oda Kodu Gir...">
+                    <button class="btn-main" onclick="joinByCode()">KATIL</button>
                 </div>
             </div>
 
-            <!-- ODA OLUŞTURMA MODALI -->
             <div id="create-modal" class="modal">
                 <div class="modal-content">
                     <h2>Oda Kurulumu</h2>
-                    <input type="text" id="custom-room-id" placeholder="Oda Adı/Kodu (boş bırak rastgele)">
+                    <input type="text" id="custom-room-id" placeholder="Oda Kodu (rastgele için boş bırak)">
                     <select id="max-players-select">
-                        <option value="5">5 Kişilik</option>
-                        <option value="6">6 Kişilik</option>
-                        <option value="7">7 Kişilik</option>
-                        <option value="8" selected>8 Kişilik</option>
-                        <option value="10">10 Kişilik</option>
+                        <option value="5">5 Kişi</option>
+                        <option value="6">6 Kişi</option>
+                        <option value="7">7 Kişi</option>
+                        <option value="8" selected>8 Kişi</option>
+                        <option value="10">10 Kişi</option>
                     </select>
-                    <div class="modal-btns">
-                        <button class="btn-main" onclick="window.confirmCreateRoom()">KUR VE KATIL</button>
-                        <button class="btn-cancel" onclick="window.closeModal()">İPTAL</button>
-                    </div>
+                    <button class="btn-main" onclick="confirmCreateRoom()">KUR & KATIL</button>
+                    <button class="btn-cancel" onclick="closeModal()">İPTAL</button>
                 </div>
             </div>
         </section>
 
-        <!-- OYUN ODASI EKRANI -->
         <section id="game-room" class="screen">
             <div class="top-bar">
                 <div class="room-meta">
-                    <span id="room-name-label">ODA</span>
+                    <span id="room-name-label">Oda</span>
                     <small id="player-status">Bağlanıyor...</small>
                     <small id="phase-label">Lobby</small>
                     <small id="timer-label">00:00</small>
                 </div>
-                
-                <div class="admin-zone" id="admin-panel">
-                    <button class="btn-start-game" onclick="window.startGame()">OYUNU BAŞLAT</button>
+                <div class="admin-panel" id="admin-panel">
+                    <button class="btn-start" onclick="startGame()">BAŞLAT</button>
                 </div>
-
                 <div class="media-controls">
-                    <button id="mic-btn" class="ctrl-btn" onclick="window.toggleMic()">🎤</button>
-                    <button id="spk-btn" class="ctrl-btn" onclick="window.toggleSpk()">🔊</button>
-                    <button class="leave-btn" onclick="location.reload()">ÇIKIŞ</button>
+                    <button id="mic-btn" class="ctrl-btn" onclick="toggleMic()">🎤</button>
+                    <button id="spk-btn" class="ctrl-btn" onclick="toggleSpk()">🔊</button>
+                    <button class="leave-btn" onclick="location.reload()">ÇIK</button>
                 </div>
             </div>
 
@@ -84,37 +72,32 @@
 
             <div class="chat-system">
                 <div id="chat-messages"></div>
-                <div class="chat-input-row">
-                    <input type="text" id="chat-input" placeholder="Mesajını yaz..." onkeydown="if(event.key==='Enter') window.sendChat()">
-                    <button onclick="window.sendChat()">GÖNDER</button>
-                </div>
+                <input type="text" id="chat-input" placeholder="Mesaj yaz..." onkeydown="if(event.key==='Enter') sendChat()">
+                <button onclick="sendChat()">Gönder</button>
             </div>
 
-            <!-- GECE FAZI OVERLAY -->
-            <div id="night-phase-overlay" class="phase-overlay">
-                <h2>🌙 GECE FAZI</h2>
-                <p>Hedef seç...</p>
+            <div id="night-overlay" class="phase-overlay">
+                <h2>GECE</h2>
+                <p>Hedef Seç</p>
                 <div id="night-targets" class="target-grid"></div>
             </div>
 
-            <!-- GÜNDÜZ FAZI OVERLAY -->
-            <div id="day-phase-overlay" class="phase-overlay">
-                <h2>☀️ GÜNDÜZ TARTIŞMA</h2>
-                <p>Linç için oy ver!</p>
+            <div id="day-overlay" class="phase-overlay">
+                <h2>GÜNDÜZ</h2>
+                <p>Oy Ver</p>
                 <div id="vote-targets" class="target-grid"></div>
                 <div id="vote-results"></div>
             </div>
 
-            <!-- OYUN BİTİŞ EKRANI -->
             <div id="game-over-overlay" class="phase-overlay">
-                <h2 id="game-over-title">OYUN BİTTİ</h2>
+                <h2 id="game-over-title">BİTTİ</h2>
                 <p id="game-over-text">Kazanan...</p>
-                <button class="btn-main" onclick="location.reload()">LOBİYE DÖN</button>
+                <button class="btn-main" onclick="location.reload()">LOBİ</button>
             </div>
         </section>
     </div>
 
-    <!-- SES EFEKTLERİ (düşük kaliteli linkler → hızlı yüklenir) -->
+    <!-- Ses Efektleri -->
     <audio id="sfx-day" src="https://cdn.freesound.org/previews/612/612596_5674468-lq.mp3"></audio>
     <audio id="sfx-night" src="https://cdn.freesound.org/previews/276/276512_5123856-lq.mp3"></audio>
     <audio id="sfx-vote" src="https://cdn.freesound.org/previews/341/341695_3248244-lq.mp3"></audio>
