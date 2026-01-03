@@ -3,44 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VK ROYALS | RANDOM MATCH</title>
+    <title>VK ROYALS V4</title>
     <link rel="stylesheet" href="style.css">
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-    <div id="master-wrap">
-        <section id="lobby" class="screen active">
-            <div class="lobby-card">
-                <h1 style="color:var(--gold); margin-bottom:15px;">❄️ VK ROYALS ❄️</h1>
-                <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=7">
-                <p style="font-size:12px; color:#aaa; margin-bottom:15px;">Değiştirmek için resme dokun</p>
-                <input type="text" id="nickname" placeholder="Lakabın..." maxlength="12">
-                <button id="btn-join" style="background:var(--gold); font-weight:bold; padding:15px; border-radius:12px; border:none; width:100%; margin-top:10px;">EŞLEŞMEYE BAŞLA</button>
+    <div id="snow"></div>
+    <section id="lobby" class="screen active">
+        <div class="lobby-card">
+            <h1 style="color:var(--accent)">❄️ VK ROYALS ❄️</h1>
+            <img id="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=1" onclick="this.src=`https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`">
+            <input type="text" id="nickname" placeholder="Lakabın..." maxlength="12">
+            
+            <button onclick="startRandom()" style="background:var(--accent); color:white; font-weight:bold; padding:15px; border-radius:12px; width:100%; margin:5px 0;">RASTGELE EŞLEŞ</button>
+            
+            <div style="margin:10px 0; font-size:12px; color:#555">--- ÖZEL ODALAR ---</div>
+            <input type="text" id="room-code" placeholder="Oda Kodu...">
+            <div style="display:flex; gap:5px">
+                <button onclick="startPrivate(2)" style="flex:1; background:var(--gold); padding:10px; border-radius:10px;">2 KİŞİLİK</button>
+                <button onclick="startPrivate(3)" style="flex:1; background:var(--gold); padding:10px; border-radius:10px;">3 KİŞİLİK</button>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <section id="game-room" class="screen">
-            <div id="status" style="text-align:center; font-size:12px; color:var(--gold); padding:5px;">Aranıyor...</div>
-            <div class="video-container">
-                <video id="peer-video" autoplay playsinline></video>
+    <section id="game-room" class="screen">
+        <div id="video-grid" class="video-grid">
+            <div class="video-box" id="my-video-box">
                 <video id="my-video" autoplay playsinline muted></video>
+                <div class="name-tag">Ben</div>
             </div>
-            <div class="fx-bar">
-                <button class="fx-btn active" onclick="setEffect('normal', this)">Normal</button>
-                <button class="fx-btn" onclick="setEffect('bebek', this)">👶 Bebek</button>
-                <button class="fx-btn" onclick="setEffect('kalin', this)">🧔 Kalın</button>
-                <button class="fx-btn" onclick="setEffect('yanki', this)">📢 Yankı</button>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" onclick="toggleMic()">🎤</button>
+            <button class="ctrl-btn" onclick="flipCamera()">🔄</button>
+            <button class="ctrl-btn" onclick="toggleFx()">👶</button>
+            <button class="ctrl-btn btn-end" onclick="endCall()">SONLANDIR</button>
+        </div>
+
+        <div class="chat-section">
+            <div id="chat-msgs"></div>
+            <div class="input-row">
+                <input type="text" id="chat-input" placeholder="Yaz...">
+                <button onclick="sendChat()" style="background:var(--accent); border-radius:10px; padding:0 15px;">🚀</button>
             </div>
-            <div class="chat-box">
-                <div id="chat-msgs"></div>
-                <div class="input-row">
-                    <input type="text" id="chat-input" placeholder="Merhaba de...">
-                    <button id="btn-send" class="btn-send">🚀</button>
-                </div>
-            </div>
-            <button onclick="location.reload()" style="background:#e74c3c; color:white; border:none; padding:12px; border-radius:12px; margin-top:10px; font-weight:bold;">AYRIL</button>
-        </section>
-    </div>
+        </div>
+    </section>
+
     <script src="app.js"></script>
 </body>
 </html>
