@@ -1,95 +1,137 @@
 const socket = io();
 let localStream;
-const peers = {};
+let myRoomId, myNickname;
+const pcs = {}; // Peer Connections
 
-// WebRTC için Google STUN Sunucuları (Uluslararası bağlantı için)
-const iceConfig = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
-    ]
+const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+// --- ELEMENTLER ---
+const avatarImg = document.getElementById('avatar-img');
+const btnCreateOpen = document.getElementById('btn-create-open');
+const btnCloseModal = document.getElementById('btn-close-modal');
+const btnConfirmCreate = document.getElementById('btn-confirm-create');
+const btnJoinAction = document.getElementById('btn-join-action');
+const btnSendChat = document.getElementById('btn-send-chat');
+const micBtn = document.getElementById('mic-btn');
+
+// --- AVATAR DEĞİŞTİRME ---
+avatarImg.onclick = () => {
+    const seed = Math.floor(Math.random() * 10000);
+    avatarImg.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
 };
 
-async function initMedia() {
-    if (localStream) return;
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch (e) {
-        alert("Mikrofon izni gerekli! Lütfen ayarlardan izin verin.");
-    }
-}
+// --- MODAL YÖNETİMİ ---
+btnCreateOpen.onclick = () => document.getElementById('create-modal').style.display = 'flex';
+btnCloseModal.onclick = () => document.getElementById('create-modal').style.display = 'none';
 
-// Modal Yönetimi
-window.showCreateModal = () => document.getElementById('create-modal').style.display = 'flex';
-window.closeModal = () => document.getElementById('create-modal').style.display = 'none';
-
-window.confirmCreateRoom = () => {
+// --- ODA KATILMA ---
+btnConfirmCreate.onclick = () => {
     const id = document.getElementById('custom-room-id').value || Math.random().toString(36).substr(7);
     joinRoom(id);
 };
 
-async function joinRoom(roomId) {
-    await initMedia();
-    const nickname = document.getElementById('nickname').value || "Oyuncu";
-    const avatar = document.getElementById('avatar-img').src;
-    
-    document.getElementById('lobby').classList.remove('active');
-    document.getElementById('game-room').classList.add('active');
-    window.myRoomId = roomId;
-    window.myNickname = nickname;
-
-    socket.emit('join-room', { roomId, nickname, avatar });
-}
-
-// WebRTC Bağlantı Mantığı
-socket.on('all-users', users => {
-    users.forEach(u => {
-        const p = new SimplePeer({
-            initiator: true,
-            trickle: false,
-            config: iceConfig,
-            stream: localStream
-        });
-        p.on('signal', signal => socket.emit('sending-signal', { userToSignal: u.id, callerID: socket.id, signal }));
-        p.on('stream', st => playAudio(st, u.id));
-        peers[u.id] = p;
-    });
-});
-
-socket.on('user-joined', p => {
-    const peer = new SimplePeer({
-        initiator: false,
-        trickle: false,
-        config: iceConfig,
-        stream: localStream
-    });
-    peer.on('signal', signal => socket.emit('returning-signal', { signal, callerID: p.callerID }));
-    peer.on('stream', st => playAudio(st, p.callerID));
-    peer.signal(p.signal);
-    peers[p.callerID] = peer;
-});
-
-socket.on('receiving-returned-signal', p => {
-    peers[p.id].signal(p.signal);
-});
-
-function playAudio(stream, id) {
-    let a = document.getElementById("aud-"+id) || document.createElement('audio');
-    a.id = "aud-"+id; a.autoplay = true; a.srcObject = stream;
-    document.body.appendChild(a);
-}
-
-// Mesajlaşma
-window.sendChat = () => {
-    const i = document.getElementById('chat-input');
-    if(!i.value) return;
-    socket.emit('send-chat', { roomId: window.myRoomId, nickname: window.myNickname, message: i.value });
-    i.value = "";
+btnJoinAction.onclick = () => {
+    const id = document.getElementById('join-room-code').value;
+    if (id) joinRoom(id);
 };
+
+async function joinRoom(roomId) {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        myRoomId = roomId;
+        myNickname = document.getElementById('nickname').value || "Oyuncu";
+        
+        document.getElementById('lobby').classList.remove('active');
+        document.getElementById('game-room').classList.add('active');
+        document.getElementById('room-name-label').innerText = "ODA: " + roomId;
+
+        socket.emit('join-room', { roomId, nickname: myNickname, avatar: avatarImg.src });
+    } catch (err) {
+        alert("Mikrofon izni olmadan devam edilemez.");
+    }
+}
+
+// --- SES İLETİŞİMİ (WEB RTC CORE) ---
+socket.on('all-users', users => {
+    users.forEach(userId => callUser(userId));
+});
+
+async function callUser(userId) {
+    const pc = createPC(userId);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit('offer', { sdp: pc.localDescription, userToSignal: userId, callerID: socket.id });
+}
+
+socket.on('offer', async (data) => {
+    const pc = createPC(data.callerID);
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('answer', { sdp: pc.localDescription, callerID: data.callerID });
+});
+
+socket.on('answer', data => {
+    pcs[data.id].setRemoteDescription(new RTCSessionDescription(data.sdp));
+});
+
+socket.on('ice-candidate', data => {
+    if (pcs[data.from]) pcs[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
+});
+
+function createPC(userId) {
+    const pc = new RTCPeerConnection(iceConfig);
+    pcs[userId] = pc;
+
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+    pc.onicecandidate = e => {
+        if (e.candidate) socket.emit('ice-candidate', { target: userId, candidate: e.candidate });
+    };
+
+    pc.ontrack = e => {
+        let audio = document.getElementById("aud-" + userId);
+        if (!audio) {
+            audio = document.createElement('audio');
+            audio.id = "aud-" + userId;
+            audio.autoplay = true;
+            document.body.appendChild(audio);
+        }
+        audio.srcObject = e.streams[0];
+    };
+    return pc;
+}
+
+// --- CHAT & UI ---
+btnSendChat.onclick = sendChat;
+function sendChat() {
+    const input = document.getElementById('chat-input');
+    if (!input.value) return;
+    socket.emit('send-chat', { roomId: myRoomId, nickname: myNickname, message: input.value });
+    input.value = "";
+}
 
 socket.on('receive-chat', d => {
     const m = document.getElementById('chat-messages');
-    m.innerHTML += `<div><b>${d.sender}:</b> ${d.message}</div>`;
+    m.innerHTML += `<div><b>${d.nickname}:</b> ${d.message}</div>`;
     m.scrollTop = m.scrollHeight;
 });
+
+socket.on('room-update', users => {
+    const grid = document.getElementById('player-grid');
+    grid.innerHTML = users.map(u => `
+        <div class="player-unit">
+            <img src="${u.avatar}" width="50" style="border-radius:50%">
+            <p>${u.nickname}</p>
+        </div>
+    `).join('');
+});
+
+micBtn.onclick = () => {
+    const t = localStream.getAudioTracks()[0];
+    t.enabled = !t.enabled;
+    micBtn.innerText = t.enabled ? "🎤" : "🔇";
+    micBtn.style.background = t.enabled ? "" : "red";
+};
+
+document.getElementById('leave-btn').onclick = () => location.reload();
