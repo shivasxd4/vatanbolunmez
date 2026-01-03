@@ -1,141 +1,227 @@
 const socket = io();
-let localStream, pc, currentFacing = "user", activeEffect = "none";
-let pcs = {}, faceInterval;
+
+// --- DEĞİŞKENLER ---
+let localStream;
+let currentFacing = "user";
+let pcs = {};
+let activeEffect = "none";
+let faceInterval;
 const isAdmin = window.location.search.includes('12345678');
 
-// Modelleri Yükle
+// --- 1. FACE-API MODELLERİNİ YÜKLE (VLADMANDIC) ---
 async function loadModels() {
-    const URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-    await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(URL);
-    console.log("Modeller Hazır");
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+    try {
+        // Efektlerin çalışması için bu iki model şart
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        console.log("VK: Face-API Modelleri Başarıyla Yüklendi.");
+    } catch (err) {
+        console.error("Model yükleme hatası:", err);
+    }
 }
 loadModels();
 
-// Medya Başlat
+// --- 2. MEDYA BAŞLATMA ---
 async function startMedia() {
     if (localStream) localStream.getTracks().forEach(t => t.stop());
-    localStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: currentFacing, width: 640 }, audio: true
-    });
-    const video = document.getElementById('my-video');
-    video.srcObject = localStream;
-    // Mirror (Aynalama) Kontrolü
-    currentFacing === "user" ? video.classList.add('mirror') : video.classList.remove('mirror');
-    if (isAdmin) document.getElementById('admin-panel').style.display = 'flex';
-    if (activeEffect !== 'none') startFaceTracking();
-    return localStream;
+    
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: currentFacing, width: 640, height: 480 },
+            audio: true
+        });
+
+        const video = document.getElementById('my-video');
+        video.srcObject = localStream;
+
+        // Kamera Aynalama Fix
+        if (currentFacing === "user") {
+            video.classList.add('mirror');
+        } else {
+            video.classList.remove('mirror');
+        }
+
+        if (isAdmin) document.getElementById('admin-panel').style.display = 'flex';
+        
+        // Eğer bir efekt seçiliyse takibi başlat
+        if (activeEffect !== 'none') startFaceTracking();
+
+        return localStream;
+    } catch (err) {
+        console.error("Medya hatası:", err);
+    }
 }
 
-// Yüz Efekt Motoru
+// --- 3. BIYIK VE YÜZ TAKİP MOTORU ---
 async function startFaceTracking() {
     const video = document.getElementById('my-video');
     const canvas = document.getElementById('face-canvas');
     const ctx = canvas.getContext('2d');
+
     if (faceInterval) clearInterval(faceInterval);
 
     faceInterval = setInterval(async () => {
-        if (activeEffect === 'none' || video.paused) {
+        if (activeEffect === 'none' || video.paused || video.ended) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             return;
         }
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+
+        // Yüzü algıla
+        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+            .withFaceLandmarks();
+
         if (detection) {
+            // Canvas boyutlarını videoya eşitle
             const dims = faceapi.matchDimensions(canvas, video, true);
             const resized = faceapi.resizeResults(detection, dims);
+            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Ayna Modu Fix
-            if (currentFacing === "user") { ctx.save(); ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+            // AYNALAMA FİX: Eğer ön kamera ise canvas'ı da ters çevir ki bıyık ters gitmesin
+            if (currentFacing === "user") {
+                ctx.save();
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
 
             const landmarks = resized.landmarks;
-            const box = resized.detection.box;
+            const nose = landmarks.getNose(); // Burun noktaları
+            const mouth = landmarks.getMouth(); // Ağız noktaları
 
             if (activeEffect === 'mustache') {
-                const lip = landmarks.getUpperLip();
-                drawImg(ctx, "https://i.imgur.com/vHdfy3n.png", lip[3].x, lip[3].y, box.width * 0.6);
-            } else if (activeEffect === 'beard') {
-                const chin = landmarks.getJawOutline();
-                drawImg(ctx, "https://i.imgur.com/79hI6xX.png", chin[8].x, chin[8].y, box.width * 0.8);
-            } else if (activeEffect === 'makeup') {
-                ctx.fillStyle = "rgba(255, 0, 100, 0.3)";
-                const l = landmarks.getLeftEye(); const r = landmarks.getRightEye();
-                ctx.beginPath(); ctx.arc(l[0].x, l[0].y + 20, 15, 0, 7); ctx.arc(r[3].x, r[3].y + 20, 15, 0, 7); ctx.fill();
+                // Bıyığı burun altı ve üst dudak arasına tam oturt
+                const mustacheImg = new Image();
+                mustacheImg.src = "https://png.pngtree.com/png-vector/20240924/ourmid/pngtree-sleek-stache-3d-mustache-art-in-black-and-white-png-image_13895382.png";
+                
+                // Bıyık merkezi: Burnun alt noktası (Nose[6]) ile üst dudağın ortası (Mouth[14])
+                const x = nose[6].x;
+                const y = (nose[6].y + mouth[14].y) / 2;
+                const width = resized.detection.box.width * 0.7; // Yüz genişliğine göre bıyık boyutu
+                const height = width * 0.4;
+
+                ctx.drawImage(mustacheImg, x - (width / 2), y - (height / 2), width, height);
+            } 
+            else if (activeEffect === 'makeup') {
+                // Basit Allık Efekti
+                ctx.fillStyle = "rgba(255, 0, 100, 0.2)";
+                const leftEye = landmarks.getLeftEye();
+                const rightEye = landmarks.getRightEye();
+                ctx.beginPath();
+                ctx.arc(leftEye[0].x, leftEye[0].y + 25, 20, 0, 2 * Math.PI);
+                ctx.arc(rightEye[3].x, rightEye[3].y + 25, 20, 0, 2 * Math.PI);
+                ctx.fill();
             }
+
             if (currentFacing === "user") ctx.restore();
         }
-    }, 60);
+    }, 50); // 20 FPS takip hızı
 }
 
-function drawImg(ctx, url, x, y, w) {
-    const img = new Image(); img.src = url;
-    const h = w * 0.5; ctx.drawImage(img, x - (w / 2), y - (h / 1.2), w, h);
-}
-
-window.setEffect = (t, el) => {
-    activeEffect = t;
-    document.querySelectorAll('.fx-card').forEach(c => c.classList.remove('active-fx'));
-    el.classList.add('active-fx');
-    if(window.navigator.vibrate) window.navigator.vibrate(30);
-    startFaceTracking();
+// --- 4. UI VE EFEKT TETİKLEYİCİ ---
+window.setEffect = (type, el) => {
+    activeEffect = type;
+    document.querySelectorAll('.fx-card').forEach(card => card.classList.remove('active-fx'));
+    if(el) el.classList.add('active-fx');
+    
+    if (window.navigator.vibrate) window.navigator.vibrate(20);
+    
+    if (activeEffect !== 'none') {
+        startFaceTracking();
+    } else {
+        const canvas = document.getElementById('face-canvas');
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
 };
 
-// Admin Fake Video
-window.playFakeVideo = async (src) => {
-    const fv = document.getElementById('fake-video');
-    fv.src = src; fv.style.display = 'block'; await fv.play();
-    const stream = fv.captureStream();
-    document.getElementById('my-video').srcObject = stream;
-    Object.values(pcs).forEach(p => {
-        p.getSenders().find(s => s.track.kind === 'video').replaceTrack(stream.getVideoTracks()[0]);
-        p.getSenders().find(s => s.track.kind === 'audio').replaceTrack(stream.getAudioTracks()[0]);
+// --- 5. ADMIN FAKE VIDEO (MP4) SİSTEMİ ---
+window.playFakeVideo = async (videoSrc) => {
+    const fakeVideo = document.getElementById('fake-video');
+    fakeVideo.src = videoSrc;
+    fakeVideo.style.display = 'block';
+    await fakeVideo.play();
+    
+    const videoStream = fakeVideo.captureStream();
+    document.getElementById('my-video').srcObject = videoStream;
+
+    Object.values(pcs).forEach(peer => {
+        const vSender = peer.getSenders().find(s => s.track.kind === 'video');
+        if (vSender) vSender.replaceTrack(videoStream.getVideoTracks()[0]);
+        
+        const aSender = peer.getSenders().find(s => s.track.kind === 'audio');
+        if (aSender) aSender.replaceTrack(videoStream.getAudioTracks()[0]);
     });
 };
 
 window.stopFakeVideo = async () => {
-    const s = await startMedia();
-    Object.values(pcs).forEach(p => {
-        p.getSenders().find(s => s.track.kind === 'video').replaceTrack(s.getVideoTracks()[0]);
-        p.getSenders().find(s => s.track.kind === 'audio').replaceTrack(s.getAudioTracks()[0]);
+    const stream = await startMedia();
+    Object.values(pcs).forEach(peer => {
+        const vSender = peer.getSenders().find(s => s.track.kind === 'video');
+        const aSender = peer.getSenders().find(s => s.track.kind === 'audio');
+        vSender.replaceTrack(stream.getVideoTracks()[0]);
+        aSender.replaceTrack(stream.getAudioTracks()[0]);
     });
     document.getElementById('fake-video').pause();
 };
 
-// WebRTC
-window.startCall = async (t) => {
+// --- 6. WebRTC VE SOCKET ---
+window.startCall = async (type, limit = 2) => {
     await startMedia();
-    socket.emit(t === 'random' ? 'join-random' : 'join-private', { 
-        roomId: document.getElementById('room-code').value, 
-        userData: { nickname: document.getElementById('nickname').value } 
+    const nick = document.getElementById('nickname').value || "User";
+    const room = document.getElementById('room-code').value;
+    
+    socket.emit(type === 'random' ? 'join-random' : 'join-private', { 
+        roomId: room, 
+        limit: limit,
+        userData: { nickname: nick, isAdmin } 
     });
+    
     document.getElementById('lobby').style.display = 'none';
     document.getElementById('game').classList.add('active');
 };
 
-function createPeer(id, init) {
-    const p = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    pcs[id] = p;
-    localStream.getTracks().forEach(t => p.addTrack(t, localStream));
-    p.onicecandidate = e => e.candidate && socket.emit('signal', { to: id, signal: e.candidate });
-    p.ontrack = e => {
-        let v = document.getElementById(`v-${id}`);
-        if (!v) {
-            v = document.createElement('video'); v.id = `v-${id}`; v.autoplay = true; 
-            v.playsinline = true; v.className = "remote-video";
-            document.getElementById('remote-container').appendChild(v);
+function createPeer(id, initiator) {
+    const peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    pcs[id] = peer;
+
+    localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
+
+    peer.onicecandidate = e => e.candidate && socket.emit('signal', { to: id, signal: e.candidate });
+    
+    peer.ontrack = e => {
+        let rv = document.getElementById(`v-${id}`);
+        if (!rv) {
+            rv = document.createElement('video');
+            rv.id = `v-${id}`; rv.autoplay = true; rv.playsinline = true; rv.className = "remote-video";
+            document.getElementById('remote-container').appendChild(rv);
         }
-        v.srcObject = e.streams[0];
+        rv.srcObject = e.streams[0];
     };
-    if (init) p.createOffer().then(o => { p.setLocalDescription(o); socket.emit('signal', { to: id, signal: o }); });
-    return p;
+
+    if (initiator) {
+        peer.createOffer().then(o => { peer.setLocalDescription(o); socket.emit('signal', { to: id, signal: o }); });
+    }
+    return peer;
 }
 
 socket.on('start-call', d => createPeer(d.targetId, d.initiator));
 socket.on('signal', async d => {
     let p = pcs[d.from] || createPeer(d.from, false);
-    if (d.signal.type === 'offer') { await p.setRemoteDescription(d.signal); const a = await p.createAnswer(); await p.setLocalDescription(a); socket.emit('signal', { to: d.from, signal: a }); }
-    else if (d.signal.type === 'answer') await p.setRemoteDescription(d.signal);
+    if (d.signal.type === 'offer') {
+        await p.setRemoteDescription(d.signal);
+        const a = await p.createAnswer(); await p.setLocalDescription(a);
+        socket.emit('signal', { to: d.from, signal: a });
+    } else if (d.signal.type === 'answer') await p.setRemoteDescription(d.signal);
     else if (d.signal.candidate) await p.addIceCandidate(d.signal);
 });
-window.toggleMic = () => { const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled; document.getElementById('mic-btn').innerHTML = t.enabled ? "🎤" : "🔇"; };
-window.switchCamera = async () => { currentFacing = currentFacing === "user" ? "environment" : "user"; await startMedia(); };
+
+window.toggleMic = () => {
+    const t = localStream.getAudioTracks()[0];
+    t.enabled = !t.enabled;
+    document.getElementById('mic-btn').innerHTML = t.enabled ? "🎤" : "🔇";
+};
+
+window.switchCamera = async () => {
+    currentFacing = currentFacing === "user" ? "environment" : "user";
+    await startMedia();
+};
