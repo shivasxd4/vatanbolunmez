@@ -1,67 +1,59 @@
 const socket = io();
 let localStream;
-let myRoomId, myNickname;
-const pcs = {}; // Peer Connections
+let myRoomId = "Global";
+const pcs = {}; 
 
-const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+// --- KAR EFEKTİ ---
+function createSnow() {
+    const container = document.getElementById('snow-container');
+    const snowflakes = ['❄', '❅', '❆'];
+    setInterval(() => {
+        const snow = document.createElement('div');
+        snow.className = 'snowflake';
+        snow.innerText = snowflakes[Math.floor(Math.random() * snowflakes.length)];
+        snow.style.left = Math.random() * 100 + 'vw';
+        snow.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        snow.style.opacity = Math.random();
+        container.appendChild(snow);
+        setTimeout(() => snow.remove(), 5000);
+    }, 200);
+}
+createSnow();
 
-// --- ELEMENTLER ---
-const avatarImg = document.getElementById('avatar-img');
-const btnCreateOpen = document.getElementById('btn-create-open');
-const btnCloseModal = document.getElementById('btn-close-modal');
-const btnConfirmCreate = document.getElementById('btn-confirm-create');
-const btnJoinAction = document.getElementById('btn-join-action');
-const btnSendChat = document.getElementById('btn-send-chat');
-const micBtn = document.getElementById('mic-btn');
-
-// --- AVATAR DEĞİŞTİRME ---
-avatarImg.onclick = () => {
-    const seed = Math.floor(Math.random() * 10000);
-    avatarImg.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+// --- AVATAR VE GİRİŞ ---
+document.getElementById('avatar-img').onclick = () => {
+    document.getElementById('avatar-img').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`;
 };
 
-// --- MODAL YÖNETİMİ ---
-btnCreateOpen.onclick = () => document.getElementById('create-modal').style.display = 'flex';
-btnCloseModal.onclick = () => document.getElementById('create-modal').style.display = 'none';
-
-// --- ODA KATILMA ---
-btnConfirmCreate.onclick = () => {
-    const id = document.getElementById('custom-room-id').value || Math.random().toString(36).substr(7);
-    joinRoom(id);
-};
-
-btnJoinAction.onclick = () => {
-    const id = document.getElementById('join-room-code').value;
-    if (id) joinRoom(id);
-};
-
-async function joinRoom(roomId) {
+document.getElementById('btn-join').onclick = async () => {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        myRoomId = roomId;
-        myNickname = document.getElementById('nickname').value || "Oyuncu";
+        // Görüntü ve Ses Al
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         
         document.getElementById('lobby').classList.remove('active');
         document.getElementById('game-room').classList.add('active');
-        document.getElementById('room-name-label').innerText = "ODA: " + roomId;
+        
+        // Kendi videomuzu ekle
+        addVideoGrid(socket.id, localStream, (document.getElementById('nickname').value || "Ben"), true);
+        
+        socket.emit('join-room', { 
+            roomId: "RoyalRoom", 
+            nickname: document.getElementById('nickname').value || "Oyuncu",
+            avatar: document.getElementById('avatar-img').src 
+        });
+    } catch (e) { alert("Kamera ve Mikrofon izni gerekli!"); }
+};
 
-        socket.emit('join-room', { roomId, nickname: myNickname, avatar: avatarImg.src });
-    } catch (err) {
-        alert("Mikrofon izni olmadan devam edilemez.");
-    }
-}
-
-// --- SES İLETİŞİMİ (WEB RTC CORE) ---
+// --- WEB RTC MANTIĞI ---
 socket.on('all-users', users => {
-    users.forEach(userId => callUser(userId));
+    users.forEach(userId => {
+        const pc = createPC(userId);
+        pc.createOffer().then(offer => {
+            pc.setLocalDescription(offer);
+            socket.emit('offer', { sdp: offer, userToSignal: userId, callerID: socket.id });
+        });
+    });
 });
-
-async function callUser(userId) {
-    const pc = createPC(userId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit('offer', { sdp: pc.localDescription, userToSignal: userId, callerID: socket.id });
-}
 
 socket.on('offer', async (data) => {
     const pc = createPC(data.callerID);
@@ -80,7 +72,7 @@ socket.on('ice-candidate', data => {
 });
 
 function createPC(userId) {
-    const pc = new RTCPeerConnection(iceConfig);
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     pcs[userId] = pc;
 
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -90,26 +82,53 @@ function createPC(userId) {
     };
 
     pc.ontrack = e => {
-        let audio = document.getElementById("aud-" + userId);
-        if (!audio) {
-            audio = document.createElement('audio');
-            audio.id = "aud-" + userId;
-            audio.autoplay = true;
-            document.body.appendChild(audio);
-        }
-        audio.srcObject = e.streams[0];
+        addVideoGrid(userId, e.streams[0], "Oyuncu");
     };
     return pc;
 }
 
-// --- CHAT & UI ---
-btnSendChat.onclick = sendChat;
-function sendChat() {
-    const input = document.getElementById('chat-input');
-    if (!input.value) return;
-    socket.emit('send-chat', { roomId: myRoomId, nickname: myNickname, message: input.value });
-    input.value = "";
+function addVideoGrid(id, stream, name, isMe = false) {
+    if (document.getElementById(`vid-${id}`)) return;
+    
+    const div = document.createElement('div');
+    div.id = `vid-${id}`;
+    div.className = 'player-unit';
+    
+    const video = document.createElement('video');
+    video.autoplay = true;
+    video.playsinline = true;
+    video.srcObject = stream;
+    if (isMe) video.muted = true;
+
+    const info = document.createElement('div');
+    info.className = 'player-info';
+    info.innerText = name;
+
+    div.appendChild(video);
+    div.appendChild(info);
+    document.getElementById('player-grid').appendChild(div);
 }
+
+// --- MEDYA KONTROLLERİ ---
+document.getElementById('mic-btn').onclick = () => {
+    const t = localStream.getAudioTracks()[0];
+    t.enabled = !t.enabled;
+    document.getElementById('mic-btn').innerText = t.enabled ? "🎤" : "🔇";
+};
+
+document.getElementById('cam-btn').onclick = () => {
+    const t = localStream.getVideoTracks()[0];
+    t.enabled = !t.enabled;
+    document.getElementById('cam-btn').innerText = t.enabled ? "📹" : "❌";
+};
+
+// --- CHAT ---
+document.getElementById('btn-send').onclick = () => {
+    const i = document.getElementById('chat-input');
+    if (!i.value) return;
+    socket.emit('send-chat', { roomId: "RoyalRoom", nickname: (document.getElementById('nickname').value || "Oyuncu"), message: i.value });
+    i.value = "";
+};
 
 socket.on('receive-chat', d => {
     const m = document.getElementById('chat-messages');
@@ -118,20 +137,9 @@ socket.on('receive-chat', d => {
 });
 
 socket.on('room-update', users => {
-    const grid = document.getElementById('player-grid');
-    grid.innerHTML = users.map(u => `
-        <div class="player-unit">
-            <img src="${u.avatar}" width="50" style="border-radius:50%">
-            <p>${u.nickname}</p>
-        </div>
-    `).join('');
+    // Çıkanları temizle
+    const ids = users.map(u => `vid-${u.id}`);
+    document.querySelectorAll('.player-unit').forEach(el => {
+        if (el.id !== `vid-${socket.id}` && !ids.includes(el.id)) el.remove();
+    });
 });
-
-micBtn.onclick = () => {
-    const t = localStream.getAudioTracks()[0];
-    t.enabled = !t.enabled;
-    micBtn.innerText = t.enabled ? "🎤" : "🔇";
-    micBtn.style.background = t.enabled ? "" : "red";
-};
-
-document.getElementById('leave-btn').onclick = () => location.reload();
