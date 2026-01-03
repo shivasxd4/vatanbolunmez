@@ -1,57 +1,79 @@
 const socket = io();
-let localStream, processedStream, audioCtx, source, destination, processor;
-let currentMode = "user"; // Kamera Modu
-let fxType = "normal"; // Ses Tipi
-let visualFilter = "none"; // Bıyık vb.
+let localStream, processedStream, audioCtx, pc;
+let facingMode = "user"; 
+let audioFx = "normal";
 
-// --- SES EFEKT MOTORU (Gelişmiş) ---
-async function applyAudioFX(stream) {
+// Kar Efekti
+setInterval(() => {
+    const s = document.createElement('div');
+    s.className = 'snowflake'; s.innerText = '❄';
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.animationDuration = (Math.random() * 3 + 2) + 's';
+    document.getElementById('snow-box').appendChild(s);
+    setTimeout(() => s.remove(), 5000);
+}, 400);
+
+window.randomAvatar = () => {
+    document.getElementById('avatar-img').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`;
+};
+
+// --- SES EFEKT SİSTEMİ ---
+async function setupAudioProcessing(stream) {
     if (audioCtx) audioCtx.close();
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    source = audioCtx.createMediaStreamSource(stream);
-    destination = audioCtx.createMediaStreamDestination();
-    processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    const source = audioCtx.createMediaStreamSource(stream);
+    const destination = audioCtx.createMediaStreamDestination();
+    const processor = audioCtx.createScriptProcessor(4096, 1, 1);
 
     processor.onaudioprocess = (e) => {
         let input = e.inputBuffer.getChannelData(0);
         let output = e.outputBuffer.getChannelData(0);
         for (let i = 0; i < input.length; i++) {
-            if (fxType === 'bebek') output[i] = input[i * 2 % input.length];
-            else if (fxType === 'kalin') output[i] = input[Math.floor(i / 1.5)];
-            else if (fxType === 'kadin') output[i] = input[i * 1.3 % input.length];
+            if (audioFx === 'bebek') output[i] = input[i * 2 % input.length];
+            else if (audioFx === 'kalin') output[i] = input[Math.floor(i / 1.6)];
+            else if (audioFx === 'kadin') output[i] = input[i * 1.35 % input.length];
+            else if (audioFx === 'yanki') output[i] = input[i] + (output[i-2500] || 0) * 0.4;
             else output[i] = input[i];
         }
     };
-    source.connect(processor); processor.connect(destination);
+
+    source.connect(processor);
+    processor.connect(destination);
     return new MediaStream([...stream.getVideoTracks(), ...destination.stream.getAudioTracks()]);
 }
 
-// --- KAMERA YÖNETİMİ (Mirror Fix) ---
-async function startCam() {
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: currentMode }, audio: true
+// --- MEDYA BAŞLAT ---
+async function initMedia() {
+    localStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: facingMode }, audio: true 
     });
-    localStream = stream;
-    processedStream = await applyAudioFX(stream);
+    processedStream = await setupAudioProcessing(localStream);
     
     const myVideo = document.getElementById('my-video');
-    myVideo.srcObject = stream;
-    
-    // Arka kamerada ters gösterme (Mirror) kapatılır
-    if (currentMode === "user") myVideo.classList.add('mirror');
+    myVideo.srcObject = localStream;
+    // Mirror Düzeltme
+    if (facingMode === "user") myVideo.classList.add('mirror');
     else myVideo.classList.remove('mirror');
 }
 
+window.startApp = async () => {
+    await initMedia();
+    socket.emit('join-random', { nickname: document.getElementById('nickname').value || "Vampir" });
+    document.getElementById('lobby').classList.remove('active');
+    document.getElementById('game').classList.add('active');
+};
+
 window.flipCamera = async () => {
-    currentMode = (currentMode === "user") ? "environment" : "user";
-    await startCam();
-    // Bağlantı varsa track değiştir (Ses kopmadan)
-    Object.values(pcs).forEach(pc => {
-        const videoTrack = processedStream.getVideoTracks()[0];
-        const audioTrack = processedStream.getAudioTracks()[0];
-        pc.getSenders().find(s => s.track.kind === 'video').replaceTrack(videoTrack);
-        pc.getSenders().find(s => s.track.kind === 'audio').replaceTrack(audioTrack);
-    });
+    facingMode = (facingMode === "user") ? "environment" : "user";
+    await initMedia();
+    if (pc) {
+        const vTrack = processedStream.getVideoTracks()[0];
+        const aTrack = processedStream.getAudioTracks()[0];
+        const vSender = pc.getSenders().find(s => s.track.kind === 'video');
+        const aSender = pc.getSenders().find(s => s.track.kind === 'audio');
+        vSender.replaceTrack(vTrack);
+        aSender.replaceTrack(aTrack);
+    }
 };
 
 window.toggleMic = () => {
@@ -60,44 +82,37 @@ window.toggleMic = () => {
     document.getElementById('mic-btn').classList.toggle('active', !t.enabled);
 };
 
-// --- EFEKT MENÜSÜ ---
-window.toggleFXPanel = () => {
-    const p = document.getElementById('fx-panel');
-    p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+window.toggleFxMenu = () => {
+    const m = document.getElementById('fx-menu');
+    m.style.display = (m.style.display === 'block') ? 'none' : 'block';
 };
 
-window.setAudioFx = (type) => { fxType = type; toggleFXPanel(); };
+window.setAudioFx = (fx) => { audioFx = fx; toggleFxMenu(); };
 
-// --- LOBİ VE EŞLEŞME (WebRTC) ---
-let pcs = {};
-window.joinApp = async () => {
-    await startCam();
-    socket.emit('join-random', { nickname: document.getElementById('nickname').value || "Vampir" });
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('game').classList.add('active');
-};
-
-socket.on('matched', (data) => {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    pcs[data.partnerId] = pc;
+// --- WebRTC ---
+socket.on('matched', async (data) => {
+    pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     processedStream.getTracks().forEach(t => pc.addTrack(t, processedStream));
-    
+
     pc.onicecandidate = e => e.candidate && socket.emit('signal', { to: data.partnerId, signal: e.candidate });
-    pc.ontrack = e => {
-        document.getElementById('partner-video').srcObject = e.streams[0];
-    };
+    pc.ontrack = e => document.getElementById('partner-video').srcObject = e.streams[0];
 
     if (data.initiator) {
-        pc.createOffer().then(o => { pc.setLocalDescription(o); socket.emit('signal', { to: data.partnerId, signal: o }); });
+        const o = await pc.createOffer();
+        await pc.setLocalDescription(o);
+        socket.emit('signal', { to: data.partnerId, signal: o });
     }
-    
+
     socket.on('signal', async d => {
         if (d.from !== data.partnerId) return;
         if (d.signal.type === 'offer') {
             await pc.setRemoteDescription(d.signal);
-            const a = await pc.createAnswer(); await pc.setLocalDescription(a);
+            const a = await pc.createAnswer();
+            await pc.setLocalDescription(a);
             socket.emit('signal', { to: d.from, signal: a });
         } else if (d.signal.type === 'answer') await pc.setRemoteDescription(d.signal);
         else if (d.signal.candidate) await pc.addIceCandidate(d.signal);
     });
 });
+
+socket.on('user-disconnected', () => location.reload());
