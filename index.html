@@ -3,44 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VK ROYALS V11</title>
+    <title>VK ROYALS V12 - FINAL</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+
     <section id="lobby" class="screen active">
         <div class="lobby-card">
-            <h1>👑 VK ROYALS 👑</h1>
-            <input type="text" id="nickname" placeholder="Lakabın...">
+            <h1 style="color:var(--gold); margin-bottom: 20px;">👑 VK ROYALS 👑</h1>
+            <input type="text" id="nickname" placeholder="Lakabın..." maxlength="12">
             <button class="btn-primary" onclick="startCall('random')">RASTGELE EŞLEŞ</button>
             <div class="private-box">
+                <p style="font-size: 12px; opacity: 0.6; margin: 15px 0 5px;">ÖZEL ODA SİSTEMİ</p>
                 <input type="text" id="room-code" placeholder="Oda Kodu...">
-                <div class="room-btns">
-                    <button onclick="startCall('private', 2)">2 KİŞİ</button>
-                    <button onclick="startCall('private', 3)">3 KİŞİ</button>
+                <div style="display: flex; gap: 10px;">
+                    <button style="flex:1; padding: 12px; border-radius: 12px; background: #222; color: #fff; border: 1px solid #444;" onclick="startCall('private', 2)">2 KİŞİ</button>
+                    <button style="flex:1; padding: 12px; border-radius: 12px; background: #222; color: #fff; border: 1px solid #444;" onclick="startCall('private', 3)">3 KİŞİ</button>
                 </div>
             </div>
         </div>
     </section>
 
     <section id="game" class="screen">
-        <div id="admin-panel" style="display:none;">
+        <div id="admin-panel">
             <p>ADMIN MODU AKTİF</p>
             <button onclick="playFakeVideo('1.mp4')">🎬 Video 1</button>
             <button onclick="playFakeVideo('2.mp4')">🎬 Video 2</button>
-            <button onclick="stopFakeVideo()" style="background:red;">❌ Kameraya Dön</button>
+            <button onclick="stopFakeVideo()" style="background:var(--accent);">❌ Kameraya Dön</button>
         </div>
 
         <div id="video-wrapper">
             <div id="remote-container"></div>
             <div id="local-container">
                 <video id="my-video" autoplay playsinline muted></video>
+                <canvas id="face-canvas"></canvas>
                 <video id="fake-video" loop style="display:none;"></video>
             </div>
         </div>
 
         <div class="ui-overlay">
+            <div class="fx-bar">
+                <div class="fx-card" onclick="setEffect('mustache', this)"><span>🥸</span><p>Bıyık</p></div>
+                <div class="fx-card" onclick="setEffect('beard', this)"><span>🧔</span><p>Sakal</p></div>
+                <div class="fx-card" onclick="setEffect('makeup', this)"><span>💄</span><p>Makyaj</p></div>
+                <div class="fx-card" onclick="setEffect('none', this)"><span>❌</span><p>Temiz</p></div>
+            </div>
+
             <div class="nav-bar">
                 <button id="mic-btn" class="nav-btn" onclick="toggleMic()">🎤</button>
                 <button class="nav-btn" onclick="switchCamera()">🔄</button>
