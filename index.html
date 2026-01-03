@@ -3,42 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VK ROYALS V7</title>
+    <title>VK ROYALS V8 PRO</title>
     <link rel="stylesheet" href="style.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+    <div id="snow-layer"></div>
+
     <section id="lobby" class="screen active">
         <div class="lobby-card">
-            <h1 style="color:var(--gold)">❄️ VK ROYALS ❄️</h1>
+            <h2 style="color:var(--gold); margin-bottom:10px;">🎄 VK ROYALS 🎄</h2>
+            <img id="avatar-preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=7" onclick="this.src=`https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`">
             <input type="text" id="nickname" placeholder="Lakabın...">
-            <button class="btn-main" onclick="startRandom()">RASTGELE EŞLEŞ</button>
-            <div style="margin:20px 0; font-size:12px; color:#555">--- ÖZEL ODALAR ---</div>
-            <input type="text" id="room-code" placeholder="Oda Kodu...">
-            <div style="display:flex; gap:5px">
-                <button onclick="startPrivate(2)" style="flex:1; background:#333; padding:10px; border-radius:10px; color:white; border:none;">2 KİŞİ</button>
-                <button onclick="startPrivate(3)" style="flex:1; background:#333; padding:10px; border-radius:10px; color:white; border:none;">3 KİŞİ</button>
+            <button class="btn-primary" onclick="startCall('random')">RASTGELE EŞLEŞ</button>
+            
+            <div class="private-section">
+                <span>ÖZEL ODALAR</span>
+                <input type="text" id="room-code" placeholder="Oda Kodu Gir...">
+                <div class="btn-group">
+                    <button onclick="startCall('private', 2)">2 KİŞİ</button>
+                    <button onclick="startCall('private', 3)">3 KİŞİ</button>
+                </div>
             </div>
         </div>
     </section>
 
     <section id="game" class="screen">
-        <div id="video-grid">
-            <video id="my-video" autoplay playsinline muted></video>
+        <div id="video-container">
+            <div id="remote-videos"></div>
+            <div id="local-box">
+                <video id="my-video" autoplay playsinline muted></video>
+                <canvas id="face-canvas"></canvas>
+            </div>
         </div>
-        <div id="fx-menu" style="display:none; background:#1a1a1c; padding:10px; display:flex; gap:10px; justify-content:center;">
-             <button onclick="setAudioFx('bebek')">👶</button>
-             <button onclick="setAudioFx('kadin')">👩</button>
-             <button onclick="setAudioFx('kalin')">🧔</button>
-             <button onclick="setAudioFx('normal')">❌</button>
-        </div>
-        <div class="bottom-nav">
-            <button id="mic-btn" class="circle-btn" onclick="toggleMic()">🎤</button>
-            <button class="circle-btn" onclick="document.getElementById('fx-menu').style.display='flex'">✨</button>
-            <button class="circle-btn" onclick="flipCamera()">🔄</button>
-            <button class="circle-btn" style="background:red; font-size:14px;" onclick="location.reload()">BİTİR</button>
+
+        <div class="ui-controls">
+            <div class="fx-scroller">
+                <div class="fx-item" onclick="changeAudioFx('normal')"><span>🔇</span><p>Normal</p></div>
+                <div class="fx-item" onclick="changeAudioFx('bebek')"><span>👶</span><p>Bebek</p></div>
+                <div class="fx-item" onclick="changeAudioFx('kadin')"><span>👩</span><p>Kadın</p></div>
+                <div class="fx-item" onclick="changeAudioFx('kalin')"><span>🧔</span><p>Kalın</p></div>
+                <div class="fx-item" onclick="toggleMustache()"><span>🥸</span><p>Bıyık</p></div>
+                <div class="fx-item" onclick="toggleBeauty()"><span>✨</span><p>Güzellik</p></div>
+            </div>
+
+            <div class="action-btns">
+                <button class="round-btn" onclick="toggleMic()">🎤</button>
+                <button class="round-btn" onclick="switchCamera()">🔄</button>
+                <button class="round-btn end-btn" onclick="location.reload()">AYRIL</button>
+            </div>
         </div>
     </section>
+
+    <img id="mustache-img" src="https://png.pngtree.com/png-vector/20241217/ourmid/pngtree-elegant-curled-black-mustache-icon-png-image_14725615.png" style="display:none;">
     <script src="app.js"></script>
 </body>
 </html>
