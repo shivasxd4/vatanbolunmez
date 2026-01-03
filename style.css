@@ -280,3 +280,38 @@ body {
     pointer-events: none;
     z-index: 999;
 }
+
+
+/* Bıyık Overlay */
+#mustache-overlay {
+    position: absolute;
+    display: none;
+    z-index: 110;
+    pointer-events: none;
+    transition: all 0.05s ease; /* Takip yumuşatma */
+}
+
+/* Local Video Container (Geliştirildi) */
+#local-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 120px;
+    height: 160px;
+    border: 2px solid #ffd700;
+    border-radius: 15px;
+    z-index: 100;
+    background: #000;
+}
+
+#my-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 13px;
+}
+
+.active-fx {
+    background: #ffd700 !important;
+    color: #000 !important;
+}
