@@ -1,14 +1,11 @@
 {
   "name": "vk-royals",
   "version": "1.0.0",
-  "description": "Vampire Kingdom Royals - Sesli Vampir Köy Oyunu",
+  "description": "Sesli Vampir Köy Oyunu - VK Royals",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": ["socket.io", "webrtc", "vampire", "game"],
-  "author": "VK Royals",
-  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2"
