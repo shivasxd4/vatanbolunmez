@@ -315,3 +315,41 @@ body {
     background: #ffd700 !important;
     color: #000 !important;
 }
+
+/* Admin Kontrol Paneli */
+#admin-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 999;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 15px;
+    border-radius: 15px;
+    border: 2px solid #ffd700;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#admin-panel p {
+    margin: 0;
+    color: #ffd700;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+}
+
+#admin-panel button {
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: #333;
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+#admin-panel button:active {
+    background: var(--gold);
+    color: #000;
+}
