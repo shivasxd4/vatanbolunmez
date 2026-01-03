@@ -1,287 +1,308 @@
-// app.js - VK ROYALS | TAM TEŞEKKÜLLÜ, RAILWAY UYUMLU, TÜM CİHAZLARDA ÇALIŞAN VERSİYON
-// Railway deploy için: socket.io otomatik origin alır → localhost ve https://*.up.railway.app'da sorunsuz çalışır
+// server.js - VK ROYALS | RAILWAY'DE TAM ÇALIŞAN VERSİYON
+// Statik dosyalar (index.html, app.js, style.css) doğrudan servis ediliyor
+// Socket.io + WebRTC + Oyun mantığı tam
 
-const socket = io(); // EN ÖNEMLİ DEĞİŞİKLİK: Boş bırakıldı → otomatik current domain'e bağlanır (HTTPS dahil)
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
-let localStream = null;
-let currentRoomId = null;
-const peers = {};
-let myRole = null;
+const app = express();
 
-// Ses efektleri çalma
-function playSFX(id) {
-    const audio = document.getElementById(id);
-    if (audio) {
-        audio.currentTime = 0;
-        audio.play().catch(() => {}); // Hata yut (autoplay policy)
-    }
-}
+// STATİK DOSYALARI SERVİS ET (EN ÖNEMLİ KISIM!)
+app.use(express.static(__dirname));
 
-// AVATAR DEĞİŞTİR
-window.nextAvatar = () => {
-    const seed = Math.floor(Math.random() * 99999);
-    document.getElementById('avatar-img').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-};
-
-// MODAL KONTROLLERİ
-window.showCreateModal = () => document.getElementById('create-modal').classList.add('active');
-window.closeModal = () => document.getElementById('create-modal').classList.remove('active');
-
-// YENİ ODA KUR
-window.confirmCreateRoom = () => {
-    let rId = document.getElementById('custom-room-id').value.trim();
-    if (!rId) rId = "Oda-" + Math.random().toString(36).substr(2, 6).toUpperCase();
-    const maxP = document.getElementById('max-players-select').value;
-    socket.emit('create-custom-room', { roomId: rId, max: maxP });
-};
-
-socket.on('room-created-success', (roomId) => {
-    window.closeModal();
-    window.joinRoom(roomId);
+// Tüm istekleri index.html'e yönlendir (SPA için)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ÖZEL ODA KODU İLE KATIL
-window.joinByCode = () => {
-    const roomId = document.getElementById('join-room-code').value.trim();
-    if (!roomId) return alert("Oda kodunu giriniz!");
-    window.joinRoom(roomId);
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
+// Sabit ayarlar
+const DAY_DURATION = 90;    // saniye
+const NIGHT_DURATION = 45;  // saniye
+const MIN_PLAYERS_TO_START = 5;
+
+// Odalar
+let rooms = {
+    "Salon-1": { id: "Salon-1", max: 10, players: {}, state: "LOBBY", adminId: null, type: "public" },
+    "Salon-2": { id: "Salon-2", max: 10, players: {}, state: "LOBBY", adminId: null, type: "public" },
+    "Salon-3": { id: "Salon-3", max: 10, players: {}, state: "LOBBY", adminId: null, type: "public" }
 };
 
-// ODAYA KATIL (ANA FONKSİYON)
-window.joinRoom = async (roomId) => {
-    const nick = document.getElementById('nickname').value.trim();
-    if (!nick) return alert("Lütfen lakabınızı girin!");
+io.on('connection', (socket) => {
+    console.log(`Bağlantı kuruldu: ${socket.id}`);
 
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const updateGlobalRooms = () => {
+        const publicRooms = Object.values(rooms)
+            .filter(r => r.type === "public")
+            .map(r => ({
+                id: r.id,
+                count: Object.keys(r.players).length,
+                max: r.max
+            }));
+        io.emit('room-list', publicRooms);
+    };
+    updateGlobalRooms();
 
-        currentRoomId = roomId;
-        socket.emit('join-room', { 
-            roomId, 
-            username: nick, 
-            avatar: document.getElementById('avatar-img').src 
+    // Özel oda oluştur
+    socket.on('create-custom-room', ({ roomId, max }) => {
+        if (rooms[roomId]) {
+            return socket.emit('error-msg', 'Bu oda adı zaten kullanılıyor!');
+        }
+        rooms[roomId] = {
+            id: roomId,
+            max: parseInt(max) || 10,
+            players: {},
+            state: "LOBBY",
+            adminId: null,
+            type: "private"
+        };
+        socket.emit('room-created-success', roomId);
+    });
+
+    // Odaya katıl
+    socket.on('join-room', (data) => {
+        const { roomId, username, avatar } = data;
+        let room = rooms[roomId];
+
+        if (!room) {
+            room = rooms[roomId] = {
+                id: roomId,
+                max: 10,
+                players: {},
+                state: "LOBBY",
+                adminId: socket.id,
+                type: "private"
+            };
+        }
+
+        if (Object.keys(room.players).length >= room.max) {
+            return socket.emit('error-msg', 'Oda dolu!');
+        }
+
+        socket.join(roomId);
+
+        const isFirstPlayer = Object.keys(room.players).length === 0;
+        if (isFirstPlayer) room.adminId = socket.id;
+
+        room.players[socket.id] = {
+            id: socket.id,
+            username: username || "Misafir",
+            avatar: avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=default",
+            isAdmin: isFirstPlayer,
+            role: null,
+            isAlive: true
+        };
+
+        io.to(roomId).emit('update-room-players', {
+            players: Object.values(room.players),
+            adminId: room.adminId
         });
 
-        // Ekran geçişi
-        document.getElementById('lobby').classList.remove('active');
-        document.getElementById('game-room').classList.add('active');
-        document.getElementById('room-name-label').innerText = roomId;
+        const otherPlayers = Object.values(room.players).filter(p => p.id !== socket.id);
+        socket.emit('all-players', otherPlayers);
 
-        // Medya butonlarını sıfırla
-        const micBtn = document.getElementById('mic-btn');
-        const spkBtn = document.getElementById('spk-btn');
-        micBtn.innerHTML = "🎤";
-        micBtn.classList.remove('off');
-        spkBtn.classList.remove('off');
+        updateGlobalRooms();
+    });
 
-    } catch (err) {
-        console.error("Mikrofon erişim hatası:", err);
-        alert("Mikrofon izni verilmedi! Sesli sohbet çalışmayacak.");
-        // İzin verilmese bile oyuna devam et
-        currentRoomId = roomId;
-        socket.emit('join-room', { 
-            roomId, 
-            username: nick, 
-            avatar: document.getElementById('avatar-img').src 
+    // Oyun başlat
+    socket.on('start-game', (roomId) => {
+        const room = rooms[roomId];
+        if (!room || room.adminId !== socket.id || Object.keys(room.players).length < MIN_PLAYERS_TO_START) {
+            return socket.emit('error-msg', `En az ${MIN_PLAYERS_TO_START} kişi gerekli!`);
+        }
+
+        room.state = "PLAYING";
+        const players = Object.values(room.players);
+        const vampireIndex = Math.floor(Math.random() * players.length);
+
+        players.forEach((player, index) => {
+            player.role = index === vampireIndex ? 'vampire' : 'villager';
+            player.isAlive = true;
+            io.to(player.id).emit('role-assigned', player.role);
         });
-        document.getElementById('lobby').classList.remove('active');
-        document.getElementById('game-room').classList.add('active');
-        document.getElementById('room-name-label').innerText = roomId;
+
+        io.to(roomId).emit('new-message', { user: "SİSTEM", text: "Oyun başladı! Gündüz fazı..." });
+        startDayPhase(roomId);
+    });
+
+    function startDayPhase(roomId) {
+        const room = rooms[roomId];
+        if (!room || room.state !== "PLAYING") return;
+
+        room.phase = "day";
+        room.votes = {};
+        room.timeLeft = DAY_DURATION;
+
+        io.to(roomId).emit('phase-update', { phase: 'day', timeLeft: room.timeLeft });
+        io.to(roomId).emit('vote-phase', { targets: Object.values(room.players) });
+        io.to(roomId).emit('new-message', { user: "SİSTEM", text: "☀️ Gündüz oldu! Oy verin." });
+
+        room.timer = setInterval(() => {
+            room.timeLeft--;
+            io.to(roomId).emit('phase-update', { phase: 'day', timeLeft: room.timeLeft });
+            if (room.timeLeft <= 0) {
+                clearInterval(room.timer);
+                endDayPhase(roomId);
+            }
+        }, 1000);
     }
-};
 
-// HAZIR ODALARI LİSTELE
-socket.on('room-list', (rooms) => {
-    const container = document.getElementById('public-rooms');
-    container.innerHTML = '';
-    rooms.forEach(r => {
-        const div = document.createElement('div');
-        div.className = `room-card-item ${r.count >= r.max ? 'full' : ''}`;
-        div.innerHTML = `<b>${r.id}</b><br><small>${r.count}/${r.max}</small>`;
-        if (r.count < r.max) div.onclick = () => window.joinRoom(r.id);
-        container.appendChild(div);
+    socket.on('vote', ({ targetId }) => {
+        const roomId = [...socket.rooms].find(r => rooms[r] && r !== socket.id);
+        const room = rooms[roomId];
+        if (!room || room.phase !== 'day' || !room.players[socket.id]?.isAlive) return;
+        room.votes[socket.id] = targetId;
     });
-});
 
-// OYUNCU LİSTESİ GÜNCELLEME
-socket.on('update-room-players', (data) => {
-    const grid = document.getElementById('player-grid');
-    grid.innerHTML = '';
-    const isMeAdmin = data.adminId === socket.id;
-    document.getElementById('admin-panel').style.display = isMeAdmin ? 'block' : 'none';
-    document.getElementById('player-status').innerText = `${data.players.length} Kişi`;
+    function endDayPhase(roomId) {
+        const room = rooms[roomId];
+        const voteCount = {};
+        Object.values(room.votes).forEach(v => voteCount[v] = (voteCount[v] || 0) + 1);
 
-    data.players.forEach(p => {
-        const card = document.createElement('div');
-        card.className = `player-unit ${p.isAdmin ? 'is-admin' : ''} ${!p.isAlive ? 'dead-player' : ''}`;
-        card.innerHTML = `
-            <div class="avatar-wrap"><img src="${p.avatar}" alt="avatar"></div>
-            <div class="p-name">${p.username} ${p.isAdmin ? '👑' : ''} ${!p.isAlive ? '💀' : ''}</div>
-        `;
-        grid.appendChild(card);
+        let victimId = null;
+        let max = 0;
+        for (let id in voteCount) {
+            if (voteCount[id] > max) {
+                max = voteCount[id];
+                victimId = id;
+            }
+        }
+
+        let message = "Linç olmadı.";
+        if (victimId) {
+            room.players[victimId].isAlive = false;
+            message = `${room.players[victimId].username} linç edildi! (Rol: ${room.players[victimId].role.toUpperCase()})`;
+        }
+
+        io.to(roomId).emit('vote-result', { message });
+        io.to(roomId).emit('new-message', { user: "SİSTEM", text: message });
+        io.to(roomId).emit('update-room-players', { players: Object.values(room.players), adminId: room.adminId });
+
+        checkWinCondition(roomId);
+        if (room.state === "PLAYING") startNightPhase(roomId);
+    }
+
+    function startNightPhase(roomId) {
+        const room = rooms[roomId];
+        room.phase = "night";
+        room.nightActions = {};
+        room.timeLeft = NIGHT_DURATION;
+
+        io.to(roomId).emit('phase-update', { phase: 'night', timeLeft: room.timeLeft });
+        io.to(roomId).emit('new-message', { user: "SİSTEM", text: "🌙 Gece oldu..." });
+
+        Object.values(room.players).forEach(p => {
+            if (p.isAlive && p.role === 'vampire') {
+                io.to(p.id).emit('night-action-required', { targets: Object.values(room.players) });
+            }
+        });
+
+        room.timer = setInterval(() => {
+            room.timeLeft--;
+            io.to(roomId).emit('phase-update', { phase: 'night', timeLeft: room.timeLeft });
+            if (room.timeLeft <= 0) {
+                clearInterval(room.timer);
+                endNightPhase(roomId);
+            }
+        }, 1000);
+    }
+
+    socket.on('night-action', ({ targetId }) => {
+        const roomId = [...socket.rooms].find(r => rooms[r] && r !== socket.id);
+        const room = rooms[roomId];
+        if (!room || room.phase !== 'night' || room.players[socket.id]?.role !== 'vampire') return;
+        room.nightActions[socket.id] = targetId;
     });
-});
 
-// FAZ VE ZAMANLAYICI
-socket.on('phase-update', ({phase, timeLeft}) => {
-    document.getElementById('phase-label').innerText = phase === 'night' ? '🌙 Gece' : '☀️ Gündüz';
-    document.getElementById('timer-label').innerText = formatTime(timeLeft);
+    function endNightPhase(roomId) {
+        const room = rooms[roomId];
+        let killTarget = null;
+        for (let sid in room.nightActions) {
+            killTarget = room.nightActions[sid];
+            break;
+        }
 
-    document.getElementById('night-phase-overlay').classList.toggle('active', phase === 'night');
-    document.getElementById('day-phase-overlay').classList.toggle('active', phase === 'day');
+        let message = "Kimse ölmedi.";
+        if (killTarget && room.players[killTarget]?.isAlive) {
+            room.players[killTarget].isAlive = false;
+            message = `${room.players[killTarget].username} vampire kurbanı! (Rol: ${room.players[killTarget].role.toUpperCase()})`;
+        }
 
-    if (phase === 'night') playSFX('sfx-night');
-    else playSFX('sfx-day');
-});
+        io.to(roomId).emit('new-message', { user: "SİSTEM", text: message });
+        io.to(roomId).emit('update-room-players', { players: Object.values(room.players), adminId: room.adminId });
 
-function formatTime(sec) {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0');
-    const s = String(sec % 60).padStart(2, '0');
-    return `${m}:${s}`;
-}
+        checkWinCondition(roomId);
+        if (room.state === "PLAYING") startDayPhase(roomId);
+    }
 
-// ROL BİLDİRİMİ
-socket.on('role-assigned', (role) => {
-    myRole = role;
-    alert(`ROLÜN: ${role.toUpperCase()}`);
-});
+    function checkWinCondition(roomId) {
+        const room = rooms[roomId];
+        const alive = Object.values(room.players).filter(p => p.isAlive);
+        const vampiresAlive = alive.filter(p => p.role === 'vampire').length;
 
-// VAMPİR GECE HEDEF SEÇİMİ
-socket.on('night-action-required', ({targets}) => {
-    const container = document.getElementById('night-targets');
-    container.innerHTML = '<p>Hedef seç:</p>';
-    targets.forEach(t => {
-        if (t.id !== socket.id && t.isAlive) {
-            const btn = document.createElement('div');
-            btn.className = 'target-btn';
-            btn.innerText = t.username;
-            btn.onclick = () => {
-                socket.emit('night-action', {targetId: t.id});
-                btn.style.borderColor = 'var(--gold)';
-            };
-            container.appendChild(btn);
+        if (vampiresAlive === 0) {
+            endGame(roomId, 'village', 'Köylüler kazandı! ☀️');
+        } else if (vampiresAlive >= alive.length / 2) {
+            endGame(roomId, 'vampire', 'Vampirler kazandı! 🧛');
+        }
+    }
+
+    function endGame(roomId, winner, message) {
+        const room = rooms[roomId];
+        room.state = "LOBBY";
+        clearInterval(room.timer);
+        io.to(roomId).emit('game-over', { winner, message });
+        io.to(roomId).emit('new-message', { user: "SİSTEM", text: `OYUN BİTTİ! ${message}` });
+    }
+
+    // WebRTC Signaling
+    socket.on('sending-signal', (payload) => io.to(payload.userToSignal).emit('user-joined-signal', { signal: payload.signal, callerID: payload.callerID }));
+    socket.on('returning-signal', (payload) => io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id }));
+
+    // Chat
+    socket.on('send-message', (text) => {
+        const roomId = [...socket.rooms].find(r => rooms[r] && r !== socket.id);
+        const room = rooms[roomId];
+        if (room && room.players[socket.id]) {
+            io.to(roomId).emit('new-message', { user: room.players[socket.id].username, text });
+        }
+    });
+
+    // Disconnect
+    socket.on('disconnect', () => {
+        console.log(`Bağlantı kesildi: ${socket.id}`);
+        for (let roomId in rooms) {
+            const room = rooms[roomId];
+            if (room.players[socket.id]) {
+                delete room.players[socket.id];
+                if (room.adminId === socket.id && Object.keys(room.players).length > 0) {
+                    const newAdmin = Object.keys(room.players)[0];
+                    room.adminId = newAdmin;
+                    room.players[newAdmin].isAdmin = true;
+                }
+                if (Object.keys(room.players).length === 0 && room.type === "private") {
+                    delete rooms[roomId];
+                } else {
+                    io.to(roomId).emit('update-room-players', { players: Object.values(room.players), adminId: room.adminId });
+                }
+                updateGlobalRooms();
+                break;
+            }
         }
     });
 });
 
-// GÜNDÜZ OY VERME
-socket.on('vote-phase', ({targets}) => {
-    const container = document.getElementById('vote-targets');
-    container.innerHTML = '<p>Linç için oy ver:</p>';
-    targets.forEach(t => {
-        if (t.isAlive) {
-            const btn = document.createElement('div');
-            btn.className = 'target-btn';
-            btn.innerText = t.username;
-            btn.onclick = () => {
-                socket.emit('vote', {targetId: t.id});
-                btn.style.borderColor = 'var(--gold)';
-            };
-            container.appendChild(btn);
-        }
-    });
-});
-
-socket.on('vote-result', ({message}) => {
-    document.getElementById('vote-results').innerHTML = `<b>${message}</b>`;
-});
-
-// OYUN BİTTİ
-socket.on('game-over', ({winner, message}) => {
-    document.getElementById('game-over-overlay').classList.add('active');
-    document.getElementById('game-over-title').innerText = winner === 'village' ? '☀️ KÖYLÜLER KAZANDI!' : '🧛 VAMPİRLER KAZANDI!';
-    document.getElementById('game-over-text').innerText = message;
-    playSFX(winner === 'village' ? 'sfx-win-village' : 'sfx-win-vampire');
-});
-
-// WEBRTC SES BAĞLANTISI (trickle true → hızlı bağlantı)
-socket.on('all-players', (users) => {
-    users.forEach(u => {
-        if (!peers[u.id]) {
-            const peer = new SimplePeer({ initiator: true, trickle: true, stream: localStream });
-            peer.on('signal', signal => socket.emit('sending-signal', { userToSignal: u.id, callerID: socket.id, signal }));
-            peer.on('stream', stream => handleStream(u.id, stream));
-            peer.on('error', err => console.error('Peer error:', err));
-            peers[u.id] = peer;
-        }
-    });
-});
-
-socket.on('user-joined-signal', (p) => {
-    if (!peers[p.callerID]) {
-        const peer = new SimplePeer({ initiator: false, trickle: true, stream: localStream });
-        peer.on('signal', signal => socket.emit('returning-signal', { signal, callerID: p.callerID }));
-        peer.on('stream', stream => handleStream(p.callerID, stream));
-        peer.on('error', err => console.error('Peer error:', err));
-        peer.signal(p.signal);
-        peers[p.callerID] = peer;
-    }
-});
-
-socket.on('receiving-returned-signal', (p) => {
-    if (peers[p.id]) peers[p.id].signal(p.signal);
-});
-
-function handleStream(id, stream) {
-    let audio = document.getElementById(`audio-${id}`);
-    if (!audio) {
-        audio = document.createElement('audio');
-        audio.id = `audio-${id}`;
-        document.body.appendChild(audio);
-    }
-    audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.play().catch(() => {});
-}
-
-// MİKROFON KONTROL
-window.toggleMic = () => {
-    if (!localStream) return;
-    const track = localStream.getAudioTracks()[0];
-    if (track) {
-        track.enabled = !track.enabled;
-        const btn = document.getElementById('mic-btn');
-        btn.innerHTML = track.enabled ? "🎤" : "🔇";
-        btn.classList.toggle('off', !track.enabled);
-    }
-};
-
-// HOPARLÖR (TÜM SESLERİ) KONTROL
-window.toggleSpk = () => {
-    const audios = document.querySelectorAll('audio');
-    const isMuted = audios.length > 0 && audios[0].muted;
-    audios.forEach(a => a.muted = !isMuted);
-    document.getElementById('spk-btn').classList.toggle('off', !isMuted);
-};
-
-// CHAT
-window.sendChat = () => {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (text) {
-        socket.emit('send-message', text);
-        input.value = '';
-    }
-};
-
-socket.on('new-message', (d) => {
-    const box = document.getElementById('chat-messages');
-    box.innerHTML += `<div><b>${d.user}:</b> ${d.text}</div>`;
-    box.scrollTop = box.scrollHeight;
-});
-
-// OYUN BAŞLAT (ADMIN)
-window.startGame = () => socket.emit('start-game', currentRoomId);
-
-// HATA MESAJLARI
-socket.on('error-msg', (msg) => alert(msg));
-
-// Bağlantı başarılıysa konsola yaz
-socket.on('connect', () => {
-    console.log('Socket.io bağlantısı kuruldu:', socket.id);
-});
-
-socket.on('disconnect', () => {
-    console.log('Socket.io bağlantısı kesildi');
-    alert("Bağlantı koptu! Sayfayı yenileyin.");
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`VK ROYALS SERVER ÇALIŞIYOR → Port: ${PORT}`);
 });
