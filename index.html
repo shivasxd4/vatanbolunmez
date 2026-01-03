@@ -2,14 +2,16 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VK ROYALS | VAMPIRE KINGDOM</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Socket.io client sunucudan otomatik yüklenir (Railway uyumlu) -->
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
-    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
 </head>
 <body>
     <div id="master-wrap">
+        <!-- LOBBY EKRANI -->
         <section id="lobby" class="screen active">
             <div class="lobby-card">
                 <h1 class="glitch-text">VK ROYALS</h1>
@@ -25,8 +27,10 @@
 
                 <div class="lobby-actions">
                     <button class="btn-main" onclick="window.showCreateModal()">YENİ ODA KUR</button>
+                    
                     <div class="divider">VEYA HAZIR ODALARA KATIL</div>
                     <div id="public-rooms" class="room-grid"></div>
+                    
                     <div class="divider">ÖZEL ODA KODU İLE KATIL</div>
                     <div class="input-group" style="margin-top:15px;">
                         <input type="text" id="join-room-code" placeholder="Özel Oda Kodunu Gir...">
@@ -35,10 +39,11 @@
                 </div>
             </div>
 
+            <!-- ODA OLUŞTURMA MODALI -->
             <div id="create-modal" class="modal">
                 <div class="modal-content">
                     <h2>Oda Kurulumu</h2>
-                    <input type="text" id="custom-room-id" placeholder="Oda Adı veya Kodu (boş bırak rastgele)">
+                    <input type="text" id="custom-room-id" placeholder="Oda Adı/Kodu (boş bırak rastgele)">
                     <select id="max-players-select">
                         <option value="5">5 Kişilik</option>
                         <option value="6">6 Kişilik</option>
@@ -54,6 +59,7 @@
             </div>
         </section>
 
+        <!-- OYUN ODASI EKRANI -->
         <section id="game-room" class="screen">
             <div class="top-bar">
                 <div class="room-meta">
@@ -79,24 +85,27 @@
             <div class="chat-system">
                 <div id="chat-messages"></div>
                 <div class="chat-input-row">
-                    <input type="text" id="chat-input" placeholder="Mesajını yaz..." onkeydown="if(event.key=== 'Enter') window.sendChat()">
+                    <input type="text" id="chat-input" placeholder="Mesajını yaz..." onkeydown="if(event.key==='Enter') window.sendChat()">
                     <button onclick="window.sendChat()">GÖNDER</button>
                 </div>
             </div>
 
+            <!-- GECE FAZI OVERLAY -->
             <div id="night-phase-overlay" class="phase-overlay">
-                <h2>GECE FAZI</h2>
+                <h2>🌙 GECE FAZI</h2>
                 <p>Hedef seç...</p>
                 <div id="night-targets" class="target-grid"></div>
             </div>
 
+            <!-- GÜNDÜZ FAZI OVERLAY -->
             <div id="day-phase-overlay" class="phase-overlay">
-                <h2>GÜNDÜZ TARTIŞMA</h2>
-                <p>Oy ver!</p>
+                <h2>☀️ GÜNDÜZ TARTIŞMA</h2>
+                <p>Linç için oy ver!</p>
                 <div id="vote-targets" class="target-grid"></div>
                 <div id="vote-results"></div>
             </div>
 
+            <!-- OYUN BİTİŞ EKRANI -->
             <div id="game-over-overlay" class="phase-overlay">
                 <h2 id="game-over-title">OYUN BİTTİ</h2>
                 <p id="game-over-text">Kazanan...</p>
@@ -105,6 +114,7 @@
         </section>
     </div>
 
+    <!-- SES EFEKTLERİ (düşük kaliteli linkler → hızlı yüklenir) -->
     <audio id="sfx-day" src="https://cdn.freesound.org/previews/612/612596_5674468-lq.mp3"></audio>
     <audio id="sfx-night" src="https://cdn.freesound.org/previews/276/276512_5123856-lq.mp3"></audio>
     <audio id="sfx-vote" src="https://cdn.freesound.org/previews/341/341695_3248244-lq.mp3"></audio>
