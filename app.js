@@ -1,153 +1,113 @@
 const socket = io();
 let localStream;
-const peers = {}; // Bağlantıları saklar
+const peers = {};
 let myRoomId = null;
-let myNickname = "İsimsiz";
+let myNickname = "Oyuncu";
 
-// Başlangıçta Mikrofon İzni Al
-async function getMedia() {
+async function initMedia() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        console.log("Mikrofon aktif.");
-    } catch (err) {
-        console.error("Mikrofon hatası:", err);
-        alert("Sesli sohbet için mikrofon izni şart!");
-    }
+    } catch (e) { alert("Mikrofon izni veriniz!"); }
 }
 
-// Avatar Değiştirme (Basit Rastgelelik)
-window.nextAvatar = function() {
-    const seed = Math.floor(Math.random() * 1000);
-    document.getElementById('avatar-img').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-}
+window.nextAvatar = () => {
+    const s = Math.floor(Math.random()*1000);
+    document.getElementById('avatar-img').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
+};
 
-// Odaya Katılma Fonksiyonları
-window.showCreateModal = () => document.getElementById('create-modal').style.display = 'flex';
-window.closeModal = () => document.getElementById('create-modal').style.display = 'none';
+window.showCreateModal = () => document.getElementById('create-modal').style.display='flex';
+window.closeModal = () => document.getElementById('create-modal').style.display='none';
 
 window.confirmCreateRoom = () => {
-    const rId = document.getElementById('custom-room-id').value || Math.random().toString(36).substring(7);
-    joinRoom(rId);
+    const id = document.getElementById('custom-room-id').value || Math.random().toString(36).substr(7);
+    joinRoom(id);
 };
 
 window.joinByCode = () => {
-    const rId = document.getElementById('join-room-code').value;
-    if(rId) joinRoom(rId);
+    const id = document.getElementById('join-room-code').value;
+    if(id) joinRoom(id);
 };
 
 async function joinRoom(roomId) {
-    if (!localStream) await getMedia();
-    
+    await initMedia();
     myRoomId = roomId;
-    myNickname = document.getElementById('nickname').value || "Vampir";
+    myNickname = document.getElementById('nickname').value || "Anonim";
     const avatar = document.getElementById('avatar-img').src;
-
     document.getElementById('lobby').classList.remove('active');
     document.getElementById('game-room').classList.add('active');
-    document.getElementById('room-name-label').innerText = `ODA: ${roomId}`;
-
     socket.emit('join-room', { roomId, nickname: myNickname, avatar });
 }
 
-// WebRTC - Peer-to-Peer Bağlantı Kurulumu
 socket.on('all-users', users => {
-    users.forEach(user => {
-        const peer = createPeer(user.id, socket.id, localStream);
-        peers[user.id] = peer;
+    users.forEach(u => {
+        const p = createPeer(u.id, socket.id, localStream);
+        peers[u.id] = p;
     });
 });
 
-socket.on('user-joined', payload => {
-    const peer = addPeer(payload.signal, payload.callerID, localStream);
-    peers[payload.callerID] = peer;
+socket.on('user-joined', p => {
+    const peer = addPeer(p.signal, p.callerID, localStream);
+    peers[p.callerID] = peer;
 });
 
-socket.on('receiving-returned-signal', payload => {
-    peers[payload.id].signal(payload.signal);
+socket.on('receiving-returned-signal', p => {
+    peers[p.id].signal(p.signal);
 });
 
 function createPeer(userToSignal, callerID, stream) {
-    const peer = new SimplePeer({
-        initiator: true,
-        trickle: false,
+    const p = new SimplePeer({
+        initiator: true, trickle: false,
         config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
         stream
     });
-
-    peer.on('signal', signal => {
-        socket.emit('sending-signal', { userToSignal, callerID, signal });
-    });
-
-    peer.on('stream', stream => handleRemoteStream(stream, userToSignal));
-    return peer;
+    p.on('signal', signal => socket.emit('sending-signal', { userToSignal, callerID, signal }));
+    p.on('stream', st => playAudio(st, userToSignal));
+    return p;
 }
 
 function addPeer(incomingSignal, callerID, stream) {
-    const peer = new SimplePeer({
-        initiator: false,
-        trickle: false,
-        stream
-    });
-
-    peer.on('signal', signal => {
-        socket.emit('returning-signal', { signal, callerID });
-    });
-
-    peer.on('stream', stream => handleRemoteStream(stream, callerID));
-    peer.signal(incomingSignal);
-    return peer;
+    const p = new SimplePeer({ initiator: false, trickle: false, stream });
+    p.on('signal', signal => socket.emit('returning-signal', { signal, callerID }));
+    p.on('stream', st => playAudio(st, callerID));
+    p.signal(incomingSignal);
+    return p;
 }
 
-function handleRemoteStream(stream, userId) {
-    let audio = document.getElementById(`audio-${userId}`);
-    if (!audio) {
-        audio = document.createElement('audio');
-        audio.id = `audio-${userId}`;
-        audio.autoplay = true;
-        document.body.appendChild(audio);
+function playAudio(stream, id) {
+    let a = document.getElementById("aud-"+id);
+    if(!a) {
+        a = document.createElement('audio');
+        a.id = "aud-"+id; a.autoplay = true;
+        document.body.appendChild(a);
     }
-    audio.srcObject = stream;
+    a.srcObject = stream;
 }
 
-// Odadaki Oyuncuları Listeleme (Arayüz)
 socket.on('room-update', users => {
     const grid = document.getElementById('player-grid');
-    grid.innerHTML = "";
-    users.forEach(user => {
-        grid.innerHTML += `
-            <div class="player-unit">
-                <img src="${user.avatar}" width="50">
-                <div style="font-size:12px; margin-top:5px;">${user.nickname}</div>
-                ${user.id === socket.id ? '<small>(Sen)</small>' : ''}
-            </div>
-        `;
-    });
+    grid.innerHTML = users.map(u => `
+        <div class="player-unit">
+            <img src="${u.avatar}" width="60" style="border-radius:50%">
+            <p>${u.nickname}</p>
+        </div>
+    `).join('');
 });
 
-// Chat İşlemleri
 window.sendChat = () => {
-    const input = document.getElementById('chat-input');
-    if (!input.value.trim()) return;
-
-    socket.emit('send-chat', {
-        roomId: myRoomId,
-        nickname: myNickname,
-        message: input.value
-    });
-    input.value = "";
+    const i = document.getElementById('chat-input');
+    if(!i.value) return;
+    socket.emit('send-chat', { roomId: myRoomId, nickname: myNickname, message: i.value });
+    i.value = "";
 };
 
-socket.on('receive-chat', data => {
-    const msgDiv = document.getElementById('chat-messages');
-    msgDiv.innerHTML += `<div><span style="color:var(--accent)">${data.sender}:</span> ${data.message}</div>`;
-    msgDiv.scrollTop = msgDiv.scrollHeight;
+socket.on('receive-chat', d => {
+    const m = document.getElementById('chat-messages');
+    m.innerHTML += `<p><b>${d.sender}:</b> ${d.message}</p>`;
+    m.scrollTop = m.scrollHeight;
 });
 
-// Mikrofon Kapat/Aç
 window.toggleMic = () => {
-    const track = localStream.getAudioTracks()[0];
-    track.enabled = !track.enabled;
-    const btn = document.getElementById('mic-btn');
-    btn.innerText = track.enabled ? "🎤" : "🔇";
-    btn.style.background = track.enabled ? "var(--card)" : "var(--error)";
+    const t = localStream.getAudioTracks()[0];
+    t.enabled = !t.enabled;
+    document.getElementById('mic-btn').innerText = t.enabled ? "🎤" : "🔇";
 };
